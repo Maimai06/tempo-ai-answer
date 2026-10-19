@@ -398,7 +398,7 @@ data/
 data/
 
 ### Tempo 项目补充 ###
-# 本地账号配置与 Python v1 环境
+# 本地账号配置与旧版遗留缓存，迁移后仍不得提交
 /config.json
 /.venv/
 __pycache__/

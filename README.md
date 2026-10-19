@@ -1,12 +1,12 @@
 # Tempo AI 自动答题助手
 
-Go v2 迁移版：通过本机 Edge / Chrome 驱动 Tempo 平台与 DeepSeek 网页，监控面板内嵌于可执行程序。Python v1 源码仍保留，旧说明见 [README-v1](docs/README-v1.md)。
+Go v2 迁移版：通过本机 Edge / Chrome 驱动 Tempo 平台与 DeepSeek 网页，监控面板内嵌于可执行程序。当前分支仅维护 Go 实现；旧版 Python 源码、依赖文件和启动脚本已移除，历史版本保存在 [python-v1 tag](https://cnb.cool/wuyin.keji/Tools/tempo-ai-answer/-/tree/python-v1)。
 
 当前为开发分支，尚未完成真实平台和全部系统的发行验收。流水线生成的是 **轻量包**，需要已有 Edge / Chrome；带 Chromium 与 Linux 必要库的完整免依赖包仍需完成资源锁定与干净系统验证，不能把轻量包视为完整包。
 
 ## 使用
 
-解压与系统匹配的 ZIP。Windows 使用 `tempo-ai-answer.exe`，macOS / Linux 使用 `tempo-ai-answer`；macOS 另附 `启动.command`。各架构二进制不同，单个 EXE 不能通用全部系统。
+解压与系统匹配的 ZIP。Windows 使用 `tempo-ai-answer.exe`，macOS / Linux 使用 `tempo-ai-answer`；macOS 另附 `启动.command`。Go 支持在一台机器上交叉编译不同目标，但生成的二进制仍区分系统和 CPU 架构：Windows x64、macOS Intel、macOS Apple Silicon、Linux x64 各用对应的包。
 
 首次运行生成占位配置，填写平台地址、账号和密码后再次启动：
 

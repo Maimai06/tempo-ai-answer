@@ -14,7 +14,9 @@
 
 ## v1 行为对照
 
-`testdata/v1-parity.json` 由 `scripts/generate-v1-fixtures.py` 从原 Python 纯函数生成，覆盖原样提示词、HTML 转文本、字母答案解析、代码提取和逐字符 diff。Go 测试直接使用 JSON，不依赖 Python 或真实服务。
+`testdata/v1-parity.json` 是从 `python-v1` 归档版本的纯函数冻结得到的 28 条对照数据，覆盖原样提示词、HTML 转文本、字母答案解析、代码提取和逐字符 diff。Go 测试直接使用 JSON，不依赖 Python 或真实服务；来源与摘要见 [testdata/README.md](../testdata/README.md)。
+
+当前分支已移除 `bot/`、`main.py`、Python 依赖与启动脚本、旧版使用说明及一次性的 Python fixture 生成脚本。旧源码可从 `python-v1` tag（提交 `f8d9e0c9a2db3a6c24a46e20dee294fc4a4db884`）查阅，用户配置和 profile 不参与源码清理。
 
 明确保留的修复差异：
 

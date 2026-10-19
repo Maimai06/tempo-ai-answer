@@ -6,7 +6,7 @@
 | 版本 | v2.0 —— Go 跨平台重写版 |
 | 日期 | 2026-10-19 |
 | 状态 | 草案 |
-| 上游 | v1（Python + Playwright，已归档保留作对照基准） |
+| 上游 | v1（Python + Playwright，归档于 `python-v1` tag，当前分支仅保留 Go 实现与冻结的 JSON 对照数据） |
 
 ---
 
@@ -233,7 +233,7 @@ CLI 解析参数 → LoadConfig（默认值 + Validate）
 - **浏览器组装**：Linux 构建机获取各系统已编译的 Chromium 资源，锁定来源、版本、架构和摘要，核对许可后组装；无需在本地重新编译 macOS 浏览器。包内资源必须完整，不能在用户首次运行时补下载。
 - **单文件边界**：主程序的单文件不包含可直接运行的跨平台浏览器。完整包包含主程序与平台浏览器；若进一步制作含浏览器的自解压单文件，需验证权限、资源释放、签名与失败重试，不将其作为首版前置条件。
 - **早期验证**：M0.5 先证明 Linux 构建机可产生全部目标二进制，再对可用目标验证系统浏览器探测、随包 Chromium 回退、独立 profile、一次页面上下文请求和内嵌面板。分别记录交叉编译、资源组装、原生运行、真实业务及签名状态；没有 macOS 测试资源时保留待验证状态，不能由构建成功推断可用。
-- **用户数据**：Windows 使用 `%LOCALAPPDATA%\TempoAiAnswer\`；macOS 使用 `~/Library/Application Support/TempoAiAnswer/`；Linux 配置使用 `$XDG_CONFIG_HOME/tempo-ai-answer/`（默认 `~/.config/tempo-ai-answer/`），profile 与日志使用 `$XDG_DATA_HOME/tempo-ai-answer/`（默认 `~/.local/share/tempo-ai-answer/`）。首次生成配置后提示实际路径并退出；源码模式沿用项目内数据布局，不自动覆盖或删除 v1 数据。
+- **用户数据**：Windows 使用 `%LOCALAPPDATA%\TempoAiAnswer\`；macOS 使用 `~/Library/Application Support/TempoAiAnswer/`；Linux 配置使用 `$XDG_CONFIG_HOME/tempo-ai-answer/`（默认 `~/.config/tempo-ai-answer/`），profile 与日志使用 `$XDG_DATA_HOME/tempo-ai-answer/`（默认 `~/.local/share/tempo-ai-answer/`）。首次生成配置后提示实际路径并退出；旧版配置可通过 `--config` 读取，不自动覆盖或删除 v1 数据。
 - **资源位置**：面板和模板由 `embed.FS` 读取，浏览器从发行包自身资源目录定位，可选 macOS `.app` 内资源保持只读。需要释放资源时使用系统用户缓存目录下的版本与构建摘要子目录，校验完成后才启用，中断后可重试；清理仅限本工具旧版本资源。
 - **路径与系统适配**：资源目录、数据目录、浏览器定位、终端与面板打开方式集中封装；使用 `os.Executable`、`filepath` 等定位，不依赖当前工作目录、系统 PATH 中的语言运行时或开发者浏览器缓存。
 - **Linux 基线**：首版面向 §6.5 的 Ubuntu 桌面系统，收集并随包提供可再分发的必要共享库；glibc、图形会话、内核及驱动等按声明的 OS 基线验证。不得宣称适用于任意发行版；缺失依赖由构建端解决，不能让用户执行 `apt install`。AppImage 作为可选格式，不能额外要求用户安装 FUSE 才能满足主发行物验收。
@@ -301,7 +301,7 @@ M0.5 完成后，根据页面自动化移植量、各目标运行验证资源、
 | --- | --- | --- |
 | 平台接口 / DOM 改版 | 高 | 选择器集中于 provider 配置；失败路径自动截图 + 保留 trace |
 | DeepSeek 页面结构变化 | 高 | 选择器集中；`ReadLatest` 兜底；`ai-test` 命令独立验证 |
-| 迁移行为偏差 | 中 | fixture 对照 + 每阶段可运行；v1 保留可跑 |
+| 迁移行为偏差 | 中 | 冻结 JSON fixture 对照 + 每阶段可运行；旧源码通过 `python-v1` tag 查阅 |
 | 真实账号无法覆盖全部题型 | 中 | 小范围试跑优先覆盖主路径；命令行类等边界用单测 + 人工确认 |
 | 持久化 profile 复用兼容性 | 低 | 迁移后首次重新登录一次 |
 | chromedp 移植中的自动等待、异步脚本及页面生命周期差异 | 高 | M0.5 优先验证页面上下文 fetch、登录和流式读取，建立显式超时、取消及等待策略，再迁移业务 |

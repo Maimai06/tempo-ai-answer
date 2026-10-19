@@ -64,7 +64,8 @@ v1 已完整可用（平台登录、抓题、编程/选择题作答、diff 反�
 
 ### FR-1 配置管理
 
-- 首次运行自动从 `config.example.json` 生成 `config.json`，引导填写后退出。
+- 默认在可执行文件所在目录读取 `config.json`；首次缺少配置时由内嵌占位模板生成并提示实际绝对路径，引导填写后退出。配置路径不依赖启动时的工作目录，支持整体搬运。
+- 路径优先级：显式 `--config` → 显式 `--data-dir` 中的 `config.json` → 程序同目录的 `config.json`；显式相对路径按工作目录解析。启动成功或配置错误均提示实际使用的配置路径，不回显凭据。
 - 启动时使用 `encoding/json` 解码为配置结构体，经集中默认值处理与 `Validate` 校验：必填项缺失、`base_url` 仍为 `YOUR_PLATFORM_HOST` 占位符、字段类型错误，均给出中文明确提示；区分缺省与显式 `false` / `0`，避免覆盖用户配置。
 - 缺省值自动补齐：`max_retry=2`、`delay_between_steps=3`、`questions_per_chat=3`、`skip_passed=true`、`cleanup_chat=true`、`answer_timeout=180`。
 - **验收**：v1 时代的旧 `config.json` 无缝升级；任何配置错误都不产生裸栈traceback。
@@ -81,6 +82,7 @@ v1 已完整可用（平台登录、抓题、编程/选择题作答、diff 反�
 ### FR-3 数据浏览（`list` 命令）
 
 - 三类课程（`practice` / `training` / `combat`）→ 章节两层结构拍平为实验列表，编号如 `1-3`。
+- 课程与章节的可选 `id` / `coursesId` / `courseId` 允许为 `null`，从有效字段按既有顺序选择实验 ID；实验没有任何可用 ID 时明确报错并停止，不向后续接口传空 ID。
 - 关卡列表带完成标记（✓ / ·）；实践环境未启动时给出提示而非报错。
 - **验收**：输出格式与 v1 一致。
 
@@ -206,7 +208,7 @@ go.mod / go.sum        锁定 Go 版本约束与模块依赖
 | D6 配置单一来源 | `config` 包提供经过默认值处理与校验的 `Config`，以参数传递，删除全局配置变量模式 |
 | D7 选择器集中 | 所有 DOM 选择器集中于 provider 配置对象，平台改版时单点维护 |
 | D8 自带依赖与浏览器回退 | Go 主程序内含运行时和网页资源，完整包携带 Chromium；自动化和面板均可使用系统或随包浏览器 |
-| D9 资源与用户数据分离 | 打包资源可按应用版本替换；配置、profile、日志存放于稳定的用户可写目录，升级与资源清理不触及用户数据 |
+| D9 资源与用户数据分离 | 配置默认随程序便携；profile、日志存放于系统用户目录。升级替换资源与程序时保留个人配置，资源清理不触及用户数据 |
 | D10 纯 Go 交叉构建 | `CGO_ENABLED=0`，通过 `GOOS` / `GOARCH` 在 Linux 生成各目标主程序；不引入需要本地 SDK 的 GUI 或 C/C++ 绑定；各目标独立验证 |
 | D11 直接使用 CDP | 采用 chromedp 直接连接浏览器，不需要独立 WebDriver 或 Node 驱动进程；原 Playwright 页面操作需移植与回归，避免改用仍携带外部运行时的封装 |
 
@@ -233,7 +235,7 @@ CLI 解析参数 → LoadConfig（默认值 + Validate）
 - **浏览器组装**：Linux 构建机获取各系统已编译的 Chromium 资源，锁定来源、版本、架构和摘要，核对许可后组装；无需在本地重新编译 macOS 浏览器。包内资源必须完整，不能在用户首次运行时补下载。
 - **单文件边界**：主程序的单文件不包含可直接运行的跨平台浏览器。完整包包含主程序与平台浏览器；若进一步制作含浏览器的自解压单文件，需验证权限、资源释放、签名与失败重试，不将其作为首版前置条件。
 - **早期验证**：M0.5 先证明 Linux 构建机可产生全部目标二进制，再对可用目标验证系统浏览器探测、随包 Chromium 回退、独立 profile、一次页面上下文请求和内嵌面板。分别记录交叉编译、资源组装、原生运行、真实业务及签名状态；没有 macOS 测试资源时保留待验证状态，不能由构建成功推断可用。
-- **用户数据**：Windows 使用 `%LOCALAPPDATA%\TempoAiAnswer\`；macOS 使用 `~/Library/Application Support/TempoAiAnswer/`；Linux 配置使用 `$XDG_CONFIG_HOME/tempo-ai-answer/`（默认 `~/.config/tempo-ai-answer/`），profile 与日志使用 `$XDG_DATA_HOME/tempo-ai-answer/`（默认 `~/.local/share/tempo-ai-answer/`）。首次生成配置后提示实际路径并退出；旧版配置可通过 `--config` 读取，不自动覆盖或删除 v1 数据。
+- **用户数据**：配置默认使用程序同目录的 `config.json`，首次生成后提示绝对路径并退出；显式 `--config` 优先，显式 `--data-dir` 次之，不静默回退到系统目录中的旧配置。profile 与日志默认位于系统用户配置目录下的 `tempo-ai-answer`：Windows `%AppData%\tempo-ai-answer\`、macOS `~/Library/Application Support/tempo-ai-answer/`、Linux `${XDG_CONFIG_HOME:-~/.config}/tempo-ai-answer/`。`--data-dir` 可改变其位置；旧版配置可通过 `--config` 读取，不自动覆盖或删除个人配置、profile 或 v1 数据。
 - **资源位置**：面板和模板由 `embed.FS` 读取，浏览器从发行包自身资源目录定位，可选 macOS `.app` 内资源保持只读。需要释放资源时使用系统用户缓存目录下的版本与构建摘要子目录，校验完成后才启用，中断后可重试；清理仅限本工具旧版本资源。
 - **路径与系统适配**：资源目录、数据目录、浏览器定位、终端与面板打开方式集中封装；使用 `os.Executable`、`filepath` 等定位，不依赖当前工作目录、系统 PATH 中的语言运行时或开发者浏览器缓存。
 - **Linux 基线**：首版面向 §6.5 的 Ubuntu 桌面系统，收集并随包提供可再分发的必要共享库；glibc、图形会话、内核及驱动等按声明的 OS 基线验证。不得宣称适用于任意发行版；缺失依赖由构建端解决，不能让用户执行 `apt install`。AppImage 作为可选格式，不能额外要求用户安装 FUSE 才能满足主发行物验收。

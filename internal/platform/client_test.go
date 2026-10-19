@@ -87,3 +87,32 @@ func TestFailuresAndClassroom(t *testing.T) {
 		t.Fatal(e)
 	}
 }
+
+func TestCoursesWithNullableIDs(t *testing.T) {
+	for _, raw := range []string{
+		`[{"id":"chapter","courseId":null,"coursesId":null,"sort":1,"lastList":[{"id":null,"courseId":null,"coursesId":123,"sort":2}]}]`,
+		`[{"id":null,"courseId":456,"coursesId":null,"sort":1,"lastList":[{"id":null,"courseId":null,"coursesId":123,"sort":2}]}]`,
+		`[{"id":"chapter","sort":1,"lastList":[{"id":123,"courseId":null,"coursesId":null,"sort":2}]}]`,
+	} {
+		p := &fakePage{responses: []response{resp(raw)}}
+		c := Client{Page: p, BaseURL: "https://example.invalid/", ClassroomID: "class"}
+		courses, err := c.ListCourses(context.Background(), "practice")
+		if err != nil || len(courses) != 1 || courses[0].Identifier() != "123" || courses[0].Number() != "1-2" {
+			t.Fatalf("courses: %+v, err: %v", courses, err)
+		}
+	}
+}
+
+func TestCoursesRejectMissingExperimentID(t *testing.T) {
+	for _, raw := range []string{
+		`[{"id":"chapter","lastList":[{"id":null,"courseId":null,"coursesId":null}]}]`,
+		`[{"id":null,"courseId":null,"coursesId":null,"coursesType":"practice"}]`,
+		`[{"lastList":[{"coursesName":"missing ID"}]}]`,
+	} {
+		p := &fakePage{responses: []response{resp(raw)}}
+		c := Client{Page: p, BaseURL: "https://example.invalid/", ClassroomID: "class"}
+		if _, err := c.ListCourses(context.Background(), "practice"); err == nil || !strings.Contains(err.Error(), "缺少实验 ID") {
+			t.Fatalf("expected missing experiment ID error, got %v", err)
+		}
+	}
+}

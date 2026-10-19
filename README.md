@@ -8,7 +8,7 @@ Go v2 迁移版：通过本机 Edge / Chrome 驱动 Tempo 平台与 DeepSeek 网
 
 解压与系统匹配的 ZIP。Windows 使用 `tempo-ai-answer.exe`，macOS / Linux 使用 `tempo-ai-answer`；macOS 另附 `启动.command`。Go 支持在一台机器上交叉编译不同目标，但生成的二进制仍区分系统和 CPU 架构：Windows x64、macOS Intel、macOS Apple Silicon、Linux x64 各用对应的包。
 
-首次运行生成占位配置，填写平台地址、账号和密码后再次启动：
+首次运行在程序同目录生成 `config.json`，填写平台地址、账号和密码后再次启动。默认始终读取可执行文件所在目录的配置，从其他工作目录启动或双击 `启动.command` 也使用同一份文件；配置错误会显示实际路径。
 
 ```text
 tempo-ai-answer login
@@ -23,13 +23,13 @@ tempo-ai-answer ai-test
 
 无参数进入交互菜单。`--demo` 使用假 AI 并强制不提交；`--dry-run` 使用真实 AI 并禁止编程题与选择题提交。`--headless` 后台运行，不自动打开监控面板。首次登录请用可见模式完成平台验证码及 DeepSeek 登录。
 
-配置、独立浏览器 profile 和日志默认存放于系统用户配置目录下的 `tempo-ai-answer`：
+`config.json` 默认随程序放置，换机器时可随程序一起复制。独立浏览器 profile 和日志默认存放于系统用户配置目录下的 `tempo-ai-answer`：
 
 - Windows：`%AppData%/tempo-ai-answer`
 - macOS：`~/Library/Application Support/tempo-ai-answer`
 - Linux：`${XDG_CONFIG_HOME:-~/.config}/tempo-ai-answer`
 
-可用 `--data-dir "路径"` 更改数据位置；`--config "旧版/config.json"` 直接读取 v1 配置。不要把个人配置、profile 或日志加入仓库。升级替换程序不会覆盖上述用户数据。
+可用 `--data-dir "路径"` 更改 profile 和日志位置；显式指定该参数且未传 `--config` 时，也从该数据目录读取 `config.json`。配置路径优先级为 `--config` → 显式 `--data-dir` 中的 `config.json` → 程序同目录的 `config.json`。显式相对路径以终端当前工作目录为基准；`--config "旧版/config.json"` 可直接读取 v1 配置。旧测试包曾使用系统目录配置，新版默认使用程序同目录，请将已填写的文件放到程序旁边。不要把个人配置、profile 或日志加入仓库或分享给他人；升级替换程序时保留已有配置和用户数据。
 
 `check --local` 只检查本机资源、目录写权限及浏览器候选，不读取账号或访问远端；`check` 另检查平台及 AI。浏览器依次尝试 Edge、Chrome、随包 Chromium，不接管日常浏览器 profile。临时指定浏览器路径可用 `TEMPO_BROWSER`；程序启动时不下载浏览器。
 

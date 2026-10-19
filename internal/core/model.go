@@ -137,6 +137,32 @@ type Course struct {
 	CourseNo     int      `json:"-"`
 }
 
+// UnmarshalJSON 将章节和实验的可选 ID 空值视为未提供，其余 ID 类型仍严格校验。
+func (c *Course) UnmarshalJSON(b []byte) error {
+	type courseFields Course
+	var value struct {
+		courseFields
+		ID        *ID `json:"id"`
+		CoursesID *ID `json:"coursesId"`
+		CourseID  *ID `json:"courseId"`
+	}
+	if err := json.Unmarshal(b, &value); err != nil {
+		return err
+	}
+	next := Course(value.courseFields)
+	if value.ID != nil {
+		next.ID = *value.ID
+	}
+	if value.CoursesID != nil {
+		next.CoursesID = *value.CoursesID
+	}
+	if value.CourseID != nil {
+		next.CourseID = *value.CourseID
+	}
+	*c = next
+	return nil
+}
+
 // Identifier 按平台兼容字段选取实验 ID。
 func (c Course) Identifier() string {
 	for _, v := range []ID{c.CourseID, c.CoursesID, c.ID} {

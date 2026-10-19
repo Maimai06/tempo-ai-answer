@@ -44,8 +44,8 @@ func main() {
 func command() *cobra.Command {
 	a := &app{reader: bufio.NewReader(os.Stdin)}
 	root := &cobra.Command{Use: "tempo-ai-answer", Short: "Tempo 实训助手 · Go 跨平台版", Version: version + " (" + commit + ")", SilenceUsage: true, SilenceErrors: true, RunE: func(cmd *cobra.Command, _ []string) error { return a.menu(cmd) }}
-	root.PersistentFlags().StringVar(&a.dataDir, "data-dir", "", "配置、profile 和日志目录（默认系统用户目录）")
-	root.PersistentFlags().StringVar(&a.configPath, "config", "", "配置文件路径，可导入 v1 config.json")
+	root.PersistentFlags().StringVar(&a.dataDir, "data-dir", "", "profile 和日志目录；显式指定且未传 --config 时也从此处读取配置")
+	root.PersistentFlags().StringVar(&a.configPath, "config", "", "配置文件路径（默认程序同目录的 config.json），兼容 v1 配置")
 	for _, name := range []string{"login", "list", "ai-test"} {
 		n := name
 		root.AddCommand(&cobra.Command{Use: n, Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error { return a.execute(cmd.Context(), n) }})
@@ -75,6 +75,17 @@ func command() *cobra.Command {
 	return root
 }
 func (a *app) paths() error {
+	if a.configPath == "" {
+		if a.dataDir != "" {
+			a.configPath = filepath.Join(a.dataDir, "config.json")
+		} else {
+			exe, e := os.Executable()
+			if e != nil {
+				return fmt.Errorf("定位程序目录失败: %w", e)
+			}
+			a.configPath = filepath.Join(filepath.Dir(exe), "config.json")
+		}
+	}
 	if a.dataDir == "" {
 		d, e := config.DataDir()
 		if e != nil {
@@ -82,10 +93,12 @@ func (a *app) paths() error {
 		}
 		a.dataDir = d
 	}
-	if a.configPath == "" {
-		a.configPath = filepath.Join(a.dataDir, "config.json")
+	var e error
+	if a.configPath, e = filepath.Abs(a.configPath); e != nil {
+		return fmt.Errorf("定位配置文件失败: %w", e)
 	}
-	return nil
+	a.dataDir, e = filepath.Abs(a.dataDir)
+	return e
 }
 func (a *app) localCheck() error {
 	if e := a.paths(); e != nil {
@@ -101,7 +114,7 @@ func (a *app) localCheck() error {
 	if e = os.Remove(d); e != nil {
 		return e
 	}
-	fmt.Printf("[OK] %s (%s)\n[OK] 数据目录：%s\n[OK] 内嵌配置和面板资源\n", version, commit, a.dataDir)
+	fmt.Printf("[OK] %s (%s)\n[OK] 数据目录：%s\n[配置路径] %s\n[OK] 内嵌配置和面板资源\n", version, commit, a.dataDir, a.configPath)
 	cs := browser.Candidates()
 	if len(cs) == 0 {
 		return errors.New("未找到浏览器；当前为轻量包，需要 Edge/Chrome 或完整 Chromium 包")
@@ -132,8 +145,9 @@ func (a *app) execute(ctx context.Context, name string) error {
 		return nil
 	}
 	if e != nil {
-		return e
+		return fmt.Errorf("配置文件 %s: %w", a.configPath, e)
 	}
+	fmt.Printf("[OK] 配置文件：%s\n", a.configPath)
 	l, e := logger.Open(filepath.Join(a.dataDir, "logs"), cfg.Platform.Password, cfg.Platform.Username, os.Getenv("GITHUB_TOKEN"))
 	if e != nil {
 		return e

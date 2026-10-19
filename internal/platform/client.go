@@ -205,6 +205,11 @@ func (c *Client) ListCourses(ctx context.Context, kind string) ([]core.Course, e
 			}
 		}
 	}
+	for i, course := range out {
+		if course.Identifier() == "" {
+			return nil, fmt.Errorf("课程列表第 %d 个实验缺少实验 ID，请检查平台课程数据", i+1)
+		}
+	}
 	return out, nil
 }
 

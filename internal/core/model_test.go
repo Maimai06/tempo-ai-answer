@@ -37,3 +37,27 @@ func TestIDs(t *testing.T) {
 		}
 	}
 }
+
+func TestCourseNullableIDs(t *testing.T) {
+	var courses []Course
+	raw := `[{"id":1,"coursesId":null,"courseId":null,"coursesName":"第一章","lastList":[{"id":null,"coursesId":9007199254740993,"courseId":null,"coursesName":"实验"}]}]`
+	if err := json.Unmarshal([]byte(raw), &courses); err != nil {
+		t.Fatal(err)
+	}
+	if len(courses) != 1 || courses[0].ID != "1" || len(courses[0].Children) != 1 || courses[0].Children[0].Identifier() != "9007199254740993" {
+		t.Fatalf("unexpected courses: %+v", courses)
+	}
+	// 显式 null 应清空旧值，避免复用结构体时误用上一次的实验 ID。
+	c := Course{ID: "old", CoursesID: "old", CourseID: "old"}
+	if err := json.Unmarshal([]byte(`{"id":null,"coursesId":null,"courseId":null}`), &c); err != nil || c.Identifier() != "" {
+		t.Fatalf("unexpected reused course: %+v, %v", c, err)
+	}
+	for _, field := range []string{"id", "coursesId", "courseId"} {
+		for _, value := range []string{`{}`, `[]`, `true`, `1.2`} {
+			var c Course
+			if err := json.Unmarshal([]byte(`{"`+field+`":`+value+`}`), &c); err == nil {
+				t.Fatalf("accepted invalid course ID: %s=%s", field, value)
+			}
+		}
+	}
+}

@@ -13,10 +13,26 @@ import time
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
-from bot import dashboard
-from bot.platform import Platform, PlatformError
-from bot.ai_web import WebAI
-from bot.solver import Solver
+try:
+    from bot import dashboard
+    from bot.platform import Platform, PlatformError
+    from bot.ai_web import WebAI
+    from bot.solver import Solver
+except ModuleNotFoundError as _exc:
+    _name = str(_exc).split("'")[1] if "'" in str(_exc) else str(_exc)
+    print()
+    print("=" * 58)
+    print(f"  缺少依赖：{_name}")
+    print("=" * 58)
+    print("请先安装依赖，任选一种：")
+    print("  1. 双击 install.bat（推荐，自动建虚拟环境并安装）")
+    print("  2. 命令行执行：pip install -r requirements.txt")
+    print()
+    try:
+        input("按回车退出 …")
+    except EOFError:
+        pass
+    sys.exit(1)
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(ROOT, "config.json")

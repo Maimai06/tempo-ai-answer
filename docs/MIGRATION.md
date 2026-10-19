@@ -10,7 +10,7 @@
 - 平台课程/关卡/实践环境初始化、代码/选择题保存与评测、一次自动重登。
 - DeepSeek 页面驱动、流式读取、稳定度判断、对话轮换及带 Captured 状态的清理。
 - solver 接口注入、重试、demo/dry-run、只读本地面板、文件/控制台日志脱敏。
-- CNB 验证、四平台交叉构建、commit 附件和 GitHub 整仓镜像；GitHub 原生系统矩阵。
+- CNB 验证、四平台交叉构建、commit 附件和 GitHub 整仓镜像；测试与构建统一由 CNB 承担。
 
 ## v1 行为对照
 
@@ -27,9 +27,9 @@
 7. 选择题稳定文本可结束等待；代码不完整则不提交。退出时用独立、有限时长的清理上下文。
 8. 课堂链接直接使用运行期 Client.ClassroomID，不依赖配置写盘。
 
-## 远端矩阵发现与修复
+## 迁移期间的跨系统回归记录
 
-GitHub 原生矩阵已运行 Windows、macOS Intel/Apple Silicon 与两个 Ubuntu 版本。Ubuntu 24.04 的首次测试暴露浏览器强制退出后仍写 profile 的竞争；改为 CDP 正常关闭并等待分配器回收，回归测试要求退出后能立即删除测试 profile。当前结果以最后提交对应的 Actions 运行记录为准。
+迁移期间曾使用临时 GitHub Actions 矩阵验证 Windows、macOS Intel/Apple Silicon 与两个 Ubuntu 版本。Ubuntu 24.04 的首次测试暴露浏览器强制退出后仍写 profile 的竞争；改为 CDP 正常关闭并等待分配器回收，回归测试要求退出后能立即删除测试 profile。历史结果仅对应当时提交。现已移除 `.github` 工作流，由 CNB 统一执行测试和交叉构建，后续各系统原生运行验证单独记录。
 
 ## 验收边界
 

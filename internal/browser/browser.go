@@ -76,9 +76,11 @@ type Page struct {
 
 // Session 拥有浏览器进程与独立 profile 生命周期。
 type Session struct {
-	Root   *Page
-	Path   string
-	cancel context.CancelFunc
+	Root      *Page
+	Path      string
+	closeFn   func() error
+	closeOnce sync.Once
+	closeErr  error
 }
 
 // Start 依次尝试浏览器候选，不在运行时下载任何资源。
@@ -100,7 +102,15 @@ func Start(ctx context.Context, profile string, headless bool) (*Session, error)
 		e := page.Run(probe)
 		cancel()
 		if e == nil {
-			return &Session{Root: page, Path: p, cancel: func() { tc(); ac() }}, nil
+			return &Session{Root: page, Path: p, closeFn: func() error {
+				// 先通过 CDP 请求浏览器正常退出，等待 profile 刷盘与子进程结束。
+				closeCtx, closeCancel := context.WithTimeout(tab, 10*time.Second)
+				err := chromedp.Cancel(closeCtx)
+				closeCancel()
+				tc()
+				ac()
+				return err
+			}}, nil
 		}
 		tc()
 		ac()
@@ -109,7 +119,10 @@ func Start(ctx context.Context, profile string, headless bool) (*Session, error)
 }
 
 // Close 释放会话或标签页拥有的资源。
-func (s *Session) Close() { s.cancel() }
+func (s *Session) Close() error {
+	s.closeOnce.Do(func() { s.closeErr = s.closeFn() })
+	return s.closeErr
+}
 
 // NewPage 创建同一独立 profile 内的新标签页。
 func (s *Session) NewPage() *Page {

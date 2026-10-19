@@ -138,14 +138,22 @@ func (a *app) execute(ctx context.Context, name string) error {
 	if e != nil {
 		return e
 	}
-	defer l.Close()
+	defer func() {
+		if err := l.Close(); err != nil {
+			fmt.Fprintln(os.Stderr, "日志关闭失败：", err)
+		}
+	}()
 	panel := dashboard.New()
 	sink := core.Sink(func(e core.Event) { e.Text = l.Redact(e.Text); panel.Consume(e); l.Consume(e) })
 	session, e := browser.Start(context.WithoutCancel(ctx), filepath.Join(a.dataDir, "profile"), name == "list" || name == "check" || name == "run" && a.headless)
 	if e != nil {
 		return e
 	}
-	defer session.Close()
+	defer func() {
+		if err := session.Close(); err != nil {
+			l.Log.Warn("浏览器关闭未完成：" + err.Error())
+		}
+	}()
 	plat := &platform.Client{Page: session.Root, BaseURL: cfg.Platform.BaseURL, Username: cfg.Platform.Username, Password: cfg.Platform.Password, ClassroomID: cfg.Platform.ClassroomID, Log: func(s string) { sink.Emit(core.Event{Kind: "log", Text: s}) }}
 	r := &runtimeState{cfg: cfg, log: l, panel: panel, session: session, plat: plat, sink: sink}
 	if name == "ai-test" {

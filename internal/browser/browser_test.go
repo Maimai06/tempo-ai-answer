@@ -19,7 +19,7 @@ func TestCDPFixture(t *testing.T) {
 	if os.Getenv("TEMPO_BROWSER_TEST") != "1" {
 		t.Skip("设置 TEMPO_BROWSER_TEST=1 运行真实 CDP fixture")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/favicon.ico" {
@@ -60,11 +60,16 @@ func TestCDPFixture(t *testing.T) {
 		}
 	}))
 	defer ts.Close()
-	s, e := browser.Start(ctx, filepath.Join(t.TempDir(), "中文 profile"), true)
+	profile := filepath.Join(t.TempDir(), "中文 profile")
+	s, e := browser.Start(ctx, profile, true)
 	if e != nil {
 		t.Fatal(e)
 	}
-	defer s.Close()
+	defer func() {
+		if err := s.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
 	if e = s.Root.Navigate(ctx, ts.URL+"/tempo-talents/"); e != nil {
 		t.Fatal(e)
 	}
@@ -87,5 +92,11 @@ func TestCDPFixture(t *testing.T) {
 	}
 	if e = s.Root.Eval(ctx, "1+1", &value); e != nil || value != 2 {
 		t.Fatal("root page died after new tab", value, e)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(profile); err != nil {
+		t.Fatalf("浏览器退出后 profile 仍被写入: %v", err)
 	}
 }

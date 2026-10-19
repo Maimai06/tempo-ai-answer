@@ -27,6 +27,10 @@
 7. 选择题稳定文本可结束等待；代码不完整则不提交。退出时用独立、有限时长的清理上下文。
 8. 课堂链接直接使用运行期 Client.ClassroomID，不依赖配置写盘。
 
+## 远端矩阵发现与修复
+
+GitHub 原生矩阵已运行 Windows、macOS Intel/Apple Silicon 与两个 Ubuntu 版本。Ubuntu 24.04 的首次测试暴露浏览器强制退出后仍写 profile 的竞争；改为 CDP 正常关闭并等待分配器回收，回归测试要求退出后能立即删除测试 profile。当前结果以最后提交对应的 Actions 运行记录为准。
+
 ## 验收边界
 
 本地自动验证包含：四纯包各 ≥90% 语句覆盖率、fake provider 重试/不提交/取消、快照嵌套引用隔离、对话清理边界、面板并发与端口回退、协议 fixture、真实浏览器 loopback CDP、Git 镜像临时裸库回归、race/vet/build、四目标交叉编译。

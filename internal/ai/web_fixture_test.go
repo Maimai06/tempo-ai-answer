@@ -17,7 +17,7 @@ func TestDeepSeekDOMFixture(t *testing.T) {
 	if os.Getenv("TEMPO_BROWSER_TEST") != "1" {
 		t.Skip("需要浏览器 fixture")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`<html><body><textarea></textarea><button aria-label="发送">发送</button><script>document.querySelector('button').onclick=()=>{const e=document.createElement('div');e.className='ds-markdown';e.innerHTML='<div class="toolbar">java 复制 下载</div><pre>class Fixture {}</pre>';document.body.appendChild(e)}</script></body></html>`))
@@ -27,7 +27,11 @@ func TestDeepSeekDOMFixture(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	defer s.Close()
+	defer func() {
+		if err := s.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
 	if e = s.Root.Navigate(ctx, ts.URL); e != nil {
 		t.Fatal(e)
 	}

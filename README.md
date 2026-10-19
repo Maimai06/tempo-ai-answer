@@ -1,210 +1,51 @@
-# Tempo 实训平台 · AI 自动答题助手
+# Tempo AI 自动答题助手
 
-用**网页版 DeepSeek** 自动完成美林 Tempo 实训平台（`tempo-talents`）里的课程实验关卡，
-支持**编程题**和**选择题 / 判断题**，全程有实时监控面板，题目、AI 作答、最终结果同屏可见。
+Go v2 迁移版：通过本机 Edge / Chrome 驱动 Tempo 平台与 DeepSeek 网页，监控面板内嵌于可执行程序。Python v1 源码仍保留，旧说明见 [README-v1](docs/README-v1.md)。
 
-> 仅供个人学习与效率研究使用，请遵守所在学校的学术规范。
+当前为开发分支，尚未完成真实平台和全部系统的发行验收。流水线生成的是 **轻量包**，需要已有 Edge / Chrome；带 Chromium 与 Linux 必要库的完整免依赖包仍需完成资源锁定与干净系统验证，不能把轻量包视为完整包。
 
-![监控面板](docs/preview.png)
+## 使用
 
----
+解压与系统匹配的 ZIP。Windows 使用 `tempo-ai-answer.exe`，macOS / Linux 使用 `tempo-ai-answer`；macOS 另附 `启动.command`。各架构二进制不同，单个 EXE 不能通用全部系统。
 
-## 特性
+首次运行生成占位配置，填写平台地址、账号和密码后再次启动：
 
-- **两种题型**：编程题（生成代码 → 写回 → 评测）、选择题 / 判断题（作答 → 提交 → 评测）
-- **实时监控面板**：左边题目原文、中间 AI 逐字输出、右边最终代码与评测结果，底部运行日志
-- **答案自动修正**：评测不通过时，把「预期输出 vs 实际输出」的差异（精确到第几个字符）回传给 AI 重新作答
-- **上下文自动回收**：每做 3 题就删掉当前对话、新开一个，避免上下文过长导致响应变慢
-- **跑完自动清理**：结束时把本次在 DeepSeek 里产生的对话全部删除，不留垃圾
-- **环境自动启动**：平台的实训容器按需启动，程序会自动初始化并等到就绪
-- **范围控制**：一条指令指定章节 / 实验范围，跑前先列清单让你核对
-
----
-
-## 快速开始
-
-### 1. 安装依赖
-
-```bash
-pip install -r requirements.txt
+```text
+tempo-ai-answer login
+tempo-ai-answer list
+tempo-ai-answer run --scope "第1章 1-5"
+tempo-ai-answer run --scope "1-3" --steps "1-3,8" --limit 3 --dry-run
+tempo-ai-answer run --demo
+tempo-ai-answer check --local
+tempo-ai-answer check
+tempo-ai-answer ai-test
 ```
 
-需要 Python 3.10+，以及本机装有 Edge 或 Chrome（程序复用系统浏览器，不额外下载 Chromium）。
+无参数进入交互菜单。`--demo` 使用假 AI 并强制不提交；`--dry-run` 使用真实 AI 并禁止编程题与选择题提交。`--headless` 后台运行，不自动打开监控面板。首次登录请用可见模式完成平台验证码及 DeepSeek 登录。
 
-### 2. 配置
+配置、独立浏览器 profile 和日志默认存放于系统用户配置目录下的 `tempo-ai-answer`：
 
-首次运行任意命令时，程序会自动从 `config.example.json` 生成 `config.json` 然后退出。
-打开 `config.json` 填写：
+- Windows：`%AppData%/tempo-ai-answer`
+- macOS：`~/Library/Application Support/tempo-ai-answer`
+- Linux：`${XDG_CONFIG_HOME:-~/.config}/tempo-ai-answer`
 
-```jsonc
-{
-  "platform": {
-    "base_url": "http://你的平台地址/tempo-talents/",
-    "username": "你的学号或账号",
-    "password": "你的密码",
-    "classroom_id": ""        // 留空即可，程序会自动选你加入的第一个课堂
-  }
-}
+可用 `--data-dir "路径"` 更改数据位置；`--config "旧版/config.json"` 直接读取 v1 配置。不要把个人配置、profile 或日志加入仓库。升级替换程序不会覆盖上述用户数据。
+
+`check --local` 只检查本机资源、目录写权限及浏览器候选，不读取账号或访问远端；`check` 另检查平台及 AI。浏览器依次尝试 Edge、Chrome、随包 Chromium，不接管日常浏览器 profile。临时指定浏览器路径可用 `TEMPO_BROWSER`；程序启动时不下载浏览器。
+
+## 开发与流水线
+
+开发需要 Go **1.26.5**、Git 和用于 CDP fixture 的浏览器；用户运行已构建的程序无需 Go / Python / Node。
+
+```sh
+go mod download
+bash scripts/check.sh
+TEMPO_BROWSER_TEST=1 bash scripts/check.sh
+go run ./tools/build
 ```
 
-### 3. 登录（只做一次）
+支持交叉构建 Windows amd64、macOS amd64/arm64、Linux amd64；ZIP 和 SHA256SUMS 输出到 `artifacts/release/`。macOS / Linux 文件若经过不保留执行权限的解压工具处理，需恢复执行权限；优先使用系统解压工具。macOS 签名与公证另行验收。
 
-```bash
-python main.py login
-```
+[流水线设计与密钥配置](docs/CI.md) · [迁移与验收记录](docs/MIGRATION.md) · [PRD](docs/PRD.md) · [开发规范](agent.md)
 
-弹出浏览器后：
-
-1. 平台会自动用 `config.json` 里的账号登录；
-2. 打开 DeepSeek 对话页，**手动扫码或输密码登录**；
-3. 回到终端按回车，会告诉你是否登录成功。
-
-登录状态保存在 `data/profile`，之后不用再登。
-
-### 4. 开始答题
-
-```bash
-python main.py run
-```
-
-或者用菜单（不带参数运行）：
-
-```bash
-python main.py
-```
-
----
-
-## 范围指令
-
-选完「自动答题」后，程序只问一条指令：
-
-| 输入 | 含义 |
-| --- | --- |
-| 直接回车 | 全部实验里所有未完成的关 |
-| `第1章` / `第三章` | 该章全部实验（中文数字也认） |
-| `第1章 1-5` | 第 1 章的 1-1 到 1-5 号实验 |
-| `1-3` | 只做 1-3 号实验 |
-| `第2章 2` | 第 2 章第 2 个实验 |
-| `Java高级特性` | 按实验名 / 章名模糊匹配 |
-
-输入后会先打印清单给你核对：
-
-```
-范围：第1章 第1~5个实验
-将处理 5 个实验：
-     1-1  Java入门 - 初体验
-     ...
-计划处理 23 关
-```
-
-清单不对就 Ctrl+C 中断，此时还没动过成绩。
-
-> **耗时**：每个实验的实训容器首次启动要 10~40 秒，换实验时会重新启动。
-> 一个实验（约 5 关）通常 1~3 分钟，一整章十几分钟属于正常。
-
----
-
-## 常用命令
-
-```bash
-python main.py login                 # 登录（平台 + DeepSeek）
-python main.py list                  # 列出实验与关卡（✓ 已完成）
-python main.py run                   # 全部未完成
-python main.py run --scope "第1章 1-5"
-python main.py run --scope "1-3" --steps 2-4    # 再做该实验的第 2~4 关
-python main.py run --limit 3         # 最多做 3 关
-python main.py run --dry-run         # 调 AI 但不提交评测
-python main.py run --demo            # 演示模式：假 AI + 不提交，只看界面
-python main.py ai-test               # 测试 DeepSeek 通道是否正常
-python main.py check                 # 环境自检
-```
-
----
-
-## 配置项
-
-```jsonc
-{
-  "ai": {
-    "answer_timeout": 180          // 等 AI 回答的最长秒数
-  },
-  "run": {
-    "max_retry": 2,                // 评测失败后重答次数
-    "delay_between_steps": 3,      // 每关之间的间隔
-    "skip_passed": true,           // 跳过已通过的关
-    "cleanup_chat": true,          // 跑完删除本次产生的 DeepSeek 对话
-    "questions_per_chat": 3        // 每 3 题换一个对话
-  }
-}
-```
-
----
-
-## 项目结构
-
-```
-tempo-ai-answer/
-├─ main.py               命令行入口 + 交互菜单
-├─ config.example.json   配置模板（不含任何个人信息）
-├─ bot/
-│  ├─ platform.py        平台接口：登录、启动环境、抓题、提交、评测
-│  ├─ ai_web.py          DeepSeek 网页版驱动（单对话、流式读取）
-│  ├─ solver.py          拼 prompt、合并代码、答案解析、失败重答
-│  └─ dashboard.py       实时监控面板（本地 HTTP 服务）
-├─ docs/preview.png      面板截图
-├─ data/profile/         浏览器登录态（自动生成，已被 .gitignore 排除）
-└─ logs/                 日志目录
-```
-
----
-
-## 工作原理
-
-程序不走截图 OCR，而是直接调用平台接口：
-
-```
-登录平台
-  → 初始化该实验的实训容器（10~40 秒）
-  → 拉取题目 / 代码框架 / 测试用例
-  → 拼成 prompt 交给网页版 DeepSeek（整个运行共用少量对话，每 3 题换一次）
-  → 取回代码或答案 → 写回平台 → 触发评测
-  → 未通过则把「预期 vs 实际」的精确差异回传，让 AI 修正（默认重试 2 次）
-  → 跑完删除本次产生的对话
-```
-
-几个实现细节值得一提：
-
-- 平台接口必须带 `X-Requested-With: XMLHttpRequest`，否则会被网关重定向到登录页；
-- 账号密码在前端做了加密，所以登录走浏览器表单而不是直接调接口；
-- 请求全部在页面上下文里用 `fetch` 发出，自动携带 cookie；
-- DeepSeek 页面上没有可靠的「生成中」标志，判断回答是否写完靠内容特征（代码闭合、段落齐全）+ 文本稳定时长；
-- 代码块顶部的「java / 复制 / 下载」工具栏会被剔除，否则会混进代码导致编译失败；
-- 多个文件时按 `===FILE: 路径===` 分节生成并回填，同时强制 `public class` 名与文件名一致。
-
----
-
-## 已知限制
-
-| 情况 | 说明 |
-| --- | --- |
-| 命令行类关卡 | 题目给的是 `README.md`，要求你在实训终端里敲命令（如安装 JDK），程序会识别并跳过 |
-| 多文件题 | 已支持，但个别题（目录树缩进这类）AI 可能反复出错，重试 3 次不过会自动跳过 |
-| 平台判定细节 | 极少数题预期输出与判定逻辑不一致（例如只差结尾换行），会一直不过，建议手动完成 |
-| 图形验证码 | 登录时如果出现验证码，程序会提示你在浏览器窗口里手动填写 |
-
----
-
-## 免责声明
-
-本项目仅用于**学习浏览器自动化与接口调试技术**。
-把它用于课程作业、考试成绩等场景可能违反你所在学校的学术诚信规定，请自行判断并承担后果。
-作者不对使用本工具造成的任何后果负责。
-
-平台接口与页面结构随时可能变化，本项目不保证长期可用。
-
----
-
-## License
-
-[MIT](LICENSE)
+CNB 为主仓库。测试与构建通过后，可信 main/tag 流水线把全部分支与标签同步至 [GitHub 镜像](https://github.com/Maimai06/tempo-ai-answer)。GitHub 的分支和标签以 CNB 为准，不在 GitHub 独立提交。同步不迁移 Issue、PR 或 Release。

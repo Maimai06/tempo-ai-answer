@@ -18,6 +18,8 @@ CNB 是源码权威仓库，GitHub 为整仓镜像。顺序固定为：格式检
 3. 已按用户提供的地址配置镜像阶段 imports：`https://cnb.cool/wuyin.keji/MM/api-token-key/-/blob/main/env.github.yml`，变量名 `GITHUB_TOKEN`。需在密钥仓库允许当前源仓库访问；未授权或 Token 无写权限时流水线失败。
 4. 本地已有 Git 凭据时可执行 `go run ./tools/mirror --dry-run`，核对后运行 `go run ./tools/mirror`。Token 经临时 askpass 读取，不嵌入 remote URL 或命令参数。
 
+私有 CNB 源仓库的完整拉取使用流水线内置的 `CNB_TOKEN`（用户名 `cnb`，流水线结束失效），无需再配置源仓库密钥。askpass 分别对固定 HTTPS 主机提供 CNB/GitHub 凭据，拒绝其他主机；没有环境令牌的本地执行沿用已有 Git 凭据。依据：[CNB 临时令牌](https://docs.cnb.cool/zh/build/env.md#cnb_token)、[Git 认证](https://docs.cnb.cool/zh/guide/git-access.md)。
+
 PR 不导入密钥；只有源仓库中有写权限的成员可通过 push/tag 运行镜像阶段。密钥 allow_slugs 不允许 fork 仓库；审核 CI 与镜像脚本变更。GitHub Actions 仅验证/上传构建产物，不反向推送，没有同步回环。独立删除分支后，下一次 push/tag 事件或可信环境手动运行镜像使其收敛。
 
 ## 构建与验收

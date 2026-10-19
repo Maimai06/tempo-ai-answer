@@ -1,6 +1,6 @@
 # 测试、构建与 GitHub 同步
 
-CNB 是源码权威仓库，GitHub 为整仓镜像。顺序固定为：格式检查 → 模块校验 → vet → race 测试与覆盖率 → 构建 → 四平台交叉构建 → GitHub 镜像。任一步失败都终止。PR 和功能分支只验证；受信任的 main/tag 完成检查后同步所有分支与标签。
+CNB 是源码权威仓库，GitHub 为整仓镜像。顺序固定为：格式检查 → 模块校验 → vet → race 测试与覆盖率 → 构建 → 四平台交叉构建 → GitHub 镜像。任一步失败都终止。PR 只验证；源仓库内所有分支推送与 tag 推送完成检查后同步全部分支与标签。
 
 ## 镜像范围
 
@@ -18,7 +18,7 @@ CNB 是源码权威仓库，GitHub 为整仓镜像。顺序固定为：格式检
 3. 已按用户提供的地址配置镜像阶段 imports：`https://cnb.cool/wuyin.keji/MM/api-token-key/-/blob/main/env.github.yml`，变量名 `GITHUB_TOKEN`。需在密钥仓库允许当前源仓库访问；未授权或 Token 无写权限时流水线失败。
 4. 本地已有 Git 凭据时可执行 `go run ./tools/mirror --dry-run`，核对后运行 `go run ./tools/mirror`。Token 经临时 askpass 读取，不嵌入 remote URL 或命令参数。
 
-功能分支与 PR 不导入密钥；合并 main 前审核 CI 与镜像脚本。GitHub Actions 仅验证/上传构建产物，不反向推送，没有同步回环。独立删除分支后，下一次 main/tag 事件或可信环境手动运行镜像使其收敛。
+PR 不导入密钥；只有源仓库中有写权限的成员可通过 push/tag 运行镜像阶段。密钥 allow_slugs 不允许 fork 仓库；审核 CI 与镜像脚本变更。GitHub Actions 仅验证/上传构建产物，不反向推送，没有同步回环。独立删除分支后，下一次 push/tag 事件或可信环境手动运行镜像使其收敛。
 
 ## 构建与验收
 

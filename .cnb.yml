@@ -1,4 +1,4 @@
-# CNB 为源码权威；PR 和功能分支不读取 GitHub 凭据。
+# CNB 为源码权威；所有 push/tag 验证后镜像，PR 不读取 GitHub 凭据。
 main:
   push:
     - &verified-build
@@ -45,7 +45,7 @@ main:
         - *save-artifacts
 "**/!(main)":
   push:
-    - *verify-only
+    - *verified-build
 $:
   tag_push:
     - *verified-build

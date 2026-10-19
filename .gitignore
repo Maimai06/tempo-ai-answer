@@ -411,3 +411,7 @@ __pycache__/
 /artifacts/
 /playwright-report/
 /test-results/
+
+# coverage 产物规则不能屏蔽 Go 覆盖率门禁工具源码
+!/tools/coverage/
+!/tools/coverage/**

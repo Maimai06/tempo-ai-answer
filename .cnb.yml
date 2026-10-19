@@ -43,10 +43,9 @@ main:
         - name: 四平台交叉构建
           script: go run ./tools/build
         - *save-artifacts
-"**/!(main)":
+$:
   push:
     - *verified-build
-$:
   tag_push:
     - *verified-build
   vscode:

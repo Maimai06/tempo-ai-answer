@@ -2,6 +2,8 @@
 
 CNB 是源码权威仓库，GitHub 为整仓镜像。顺序固定为：格式检查 → 模块校验 → vet → race 测试与覆盖率 → 构建 → 四平台交叉构建 → GitHub 镜像。任一步失败都终止。PR 只验证；源仓库内所有分支推送与 tag 推送完成检查后同步全部分支与标签。
 
+日常交付路径固定为：本地提交并推送 CNB → CNB 流水线验证、构建并同步 GitHub → GitHub Actions 补充原生系统验证。本地不得实际运行镜像或直接推送 GitHub；脚本在实际写入前要求 CNB 构建环境标记、两个阶段令牌和已验证提交，本地仅允许 `--dry-run`。CNB 的非 main 分支使用官方 `$` 兜底触发。
+
 ## 镜像范围
 
 源：`https://cnb.cool/wuyin.keji/Tools/tempo-ai-answer`。
@@ -16,7 +18,7 @@ CNB 是源码权威仓库，GitHub 为整仓镜像。顺序固定为：格式检
 1. 创建仅允许目标 GitHub 仓库的 fine-grained PAT，Contents: Read and write；因为包含工作流，还需要 Workflows: Read and write。
 2. 放入 CNB 密钥仓库文件，`allow_slugs` 仅允许 `wuyin.keji/Tools/tempo-ai-answer`。文件包含 `GITHUB_TOKEN`，不要把真实内容提交到源码仓库。
 3. 已按用户提供的地址配置镜像阶段 imports：`https://cnb.cool/wuyin.keji/MM/api-token-key/-/blob/main/env.github.yml`，变量名 `GITHUB_TOKEN`。需在密钥仓库允许当前源仓库访问；未授权或 Token 无写权限时流水线失败。
-4. 本地已有 Git 凭据时可执行 `go run ./tools/mirror --dry-run`，核对后运行 `go run ./tools/mirror`。Token 经临时 askpass 读取，不嵌入 remote URL 或命令参数。
+4. 本地已有 Git 凭据时可执行 `go run ./tools/mirror --dry-run` 核对计划。实际同步由 CNB 检查与构建成功后的镜像阶段运行 `go run ./tools/mirror`，不得在本地代跑。Token 经临时 askpass 读取，不嵌入 remote URL 或命令参数。
 
 私有 CNB 源仓库的完整拉取使用流水线内置的 `CNB_TOKEN`（用户名 `cnb`，流水线结束失效），无需再配置源仓库密钥。askpass 分别对固定 HTTPS 主机提供 CNB/GitHub 凭据，拒绝其他主机；没有环境令牌的本地执行沿用已有 Git 凭据。依据：[CNB 临时令牌](https://docs.cnb.cool/zh/build/env.md#cnb_token)、[Git 认证](https://docs.cnb.cool/zh/guide/git-access.md)。
 
@@ -33,3 +35,5 @@ PR 不导入密钥；只有源仓库中有写权限的成员可通过 push/tag �
 语法依据：[CNB grammar](https://docs.cnb.cool/zh/build/grammar.md)、[环境变量](https://docs.cnb.cool/zh/build/env.md)。
 
 CNB 构建附件通过官方 `cnbcool/attachments` 插件保留在对应 commit 下 14 天，不自动创建 Release。插件使用临时 CNB 票据，不导入 GitHub 密钥。GitHub 原生矩阵开启 `TEMPO_BROWSER_TEST=1`，用 loopback 验证真实浏览器 Cookie、网关头、表单和异步 JS。
+
+验收自动同步时必须检查 CNB 对应提交的测试、构建和镜像阶段结果，再核对 GitHub ref。GitHub CI 通过或两端 ref 一致，均不能单独证明 CNB 自动链路成功；缺少 CNB 日志权限时保留待验证状态，不改用本地同步代替。

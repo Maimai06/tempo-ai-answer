@@ -39,6 +39,9 @@ func main() {
 func run() error {
 	dry := flag.Bool("dry-run", false, "只校验推送计划")
 	flag.Parse()
+	if err := validateExecution(*dry); err != nil {
+		return err
+	}
 	// askpass 文件只包含变量名；Token 不进入参数、文件或 remote URL。
 	if os.Getenv("GITHUB_TOKEN") != "" || os.Getenv("CNB_TOKEN") != "" {
 		dir, err := os.MkdirTemp("", "tempo-askpass-")
@@ -63,13 +66,26 @@ func run() error {
 	}
 	ref := os.Getenv("TEMPO_VERIFIED_REF")
 	commit := os.Getenv("CNB_COMMIT")
-	if os.Getenv("CI") != "" && (ref == "" || commit == "") {
-		return fmt.Errorf("CI 必须提供 TEMPO_VERIFIED_REF 和 CNB_COMMIT")
-	}
 	err := mirror.Run(context.Background(), mirror.Options{Source: "https://cnb.cool/wuyin.keji/Tools/tempo-ai-answer", Target: "https://github.com/Maimai06/tempo-ai-answer", ExpectedRef: ref, ExpectedCommit: commit, DryRun: *dry})
 	if err != nil {
 		return err
 	}
 	fmt.Println("镜像完成（dry-run:", *dry, ")")
+	return nil
+}
+
+// validateExecution 将实际写入限定为 CNB 流水线，本地仅允许核对计划。
+func validateExecution(dry bool) error {
+	if dry {
+		return nil
+	}
+	if os.Getenv("CNB") != "true" || os.Getenv("CI") != "true" {
+		return fmt.Errorf("实际同步仅允许 CNB 流水线执行；请推送代码到 CNB，本地仅可使用 --dry-run")
+	}
+	for _, key := range []string{"CNB_TOKEN", "GITHUB_TOKEN", "TEMPO_VERIFIED_REF", "CNB_COMMIT"} {
+		if os.Getenv(key) == "" {
+			return fmt.Errorf("CNB 镜像阶段缺少 %s", key)
+		}
+	}
 	return nil
 }

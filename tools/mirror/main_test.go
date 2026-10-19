@@ -6,6 +6,41 @@ import (
 	"testing"
 )
 
+func TestMirrorWritesRequireCNBPipeline(t *testing.T) {
+	keys := []string{"CNB", "CI", "CNB_TOKEN", "GITHUB_TOKEN", "TEMPO_VERIFIED_REF", "CNB_COMMIT"}
+	for _, tc := range []struct {
+		name  string
+		dry   bool
+		clear string
+		ok    bool
+	}{
+		{"cnb-pipeline", false, "", true},
+		{"local-write", false, "CNB", false},
+		{"missing-ci-marker", false, "CI", false},
+		{"missing-source-token", false, "CNB_TOKEN", false},
+		{"missing-target-token", false, "GITHUB_TOKEN", false},
+		{"missing-verified-ref", false, "TEMPO_VERIFIED_REF", false},
+		{"missing-verified-commit", false, "CNB_COMMIT", false},
+		{"local-dry-run", true, "all", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, key := range keys {
+				value := "fixture"
+				if key == "CNB" || key == "CI" {
+					value = "true"
+				}
+				if key == tc.clear || tc.clear == "all" {
+					value = ""
+				}
+				t.Setenv(key, value)
+			}
+			if err := validateExecution(tc.dry); (err == nil) != tc.ok {
+				t.Fatalf("运行路径限制错误: %v", err)
+			}
+		})
+	}
+}
+
 func TestAskpassCredentialsStayOnTheirHost(t *testing.T) {
 	sh, err := exec.LookPath("sh")
 	if err != nil {

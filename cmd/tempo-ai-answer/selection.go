@@ -78,7 +78,7 @@ func (a *app) chooseNumbers(ctx context.Context, prompt string, count int, multi
 		case err != nil:
 			fmt.Fprintln(a.output(), "范围格式不正确。请参考 1-3,5，连续范围从小到大填写；输入 0 返回。")
 		case !multiple && len(numbers) != 1:
-			fmt.Fprintln(a.output(), "一次只能选择一个课堂，请输入单个序号；输入 0 返回。")
+			fmt.Fprintln(a.output(), "一次只能选择一项，请输入单个序号；输入 0 返回。")
 		default:
 			fmt.Fprintf(a.output(), "序号超出列表，请选择 1 到 %d 之间的序号；输入 0 返回。\n", count)
 		}
@@ -132,7 +132,7 @@ func (a *app) validateRunSelection() error {
 	return nil
 }
 
-// selectPlan 先筛选实验，再选择明确的实验序号与关卡范围。
+// selectPlan 筛选并选择实验；关卡由实际列表单独选择。
 func (a *app) selectPlan(ctx context.Context, courses []core.Course, selection scope.Scope, steps []int) ([]core.Course, []int, error) {
 	if err := a.validateRunSelection(); err != nil {
 		return nil, nil, err
@@ -150,30 +150,21 @@ func (a *app) selectPlan(ctx context.Context, courses []core.Course, selection s
 		return plan, steps, nil
 	}
 	fmt.Fprintln(a.output(), "\n第 2 步 · 选择实验")
-	fmt.Fprintln(a.output(), "输入左侧序号即可；1-3,5 表示列表中的第 1、2、3、5 个实验。")
+	if a.includePassed {
+		fmt.Fprintln(a.output(), "单关试运行：请选择一个实验，接着会列出它的实际关卡。")
+	} else {
+		fmt.Fprintln(a.output(), "输入左侧序号；支持 1-3,5。接着为每个实验分别选择关卡。")
+	}
 	for i, course := range plan {
 		fmt.Fprintf(a.output(), "  %d. [%s] %s\n", i+1, course.Number(), course.Label())
 	}
-	numbers, err := a.chooseNumbers(ctx, "实验序号或范围（如 1、1-3,5；0 返回） > ", len(plan), true)
+	numbers, err := a.chooseNumbers(ctx, "选择实验（输入左侧序号；0 返回） > ", len(plan), !a.includePassed)
 	if err != nil {
 		return nil, nil, err
 	}
 	chosen := make([]core.Course, 0, len(numbers))
 	for _, n := range numbers {
 		chosen = append(chosen, plan[n-1])
-	}
-	if len(steps) == 0 {
-		fmt.Fprintf(a.output(), "\n第 3 步 · 选择关卡（已选 %d 个实验）\n", len(chosen))
-		fmt.Fprintln(a.output(), "输入 1 只做第 1 关；输入 1-2 做前两关。")
-		if a.includePassed {
-			fmt.Fprintln(a.output(), "本次只试运行 1 关，已完成的关卡也可以选择，不会提交答案。")
-		} else {
-			fmt.Fprintln(a.output(), "默认跳过已完成关卡。")
-		}
-		steps, err = a.chooseNumbers(ctx, "关卡编号或范围（如 1、1-2,5；适用于每个已选实验；0 返回） > ", 0, true)
-		if err != nil {
-			return nil, nil, err
-		}
 	}
 	return chosen, steps, nil
 }

@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -26,11 +27,13 @@ func TestSelectionBrowserFixture(t *testing.T) {
 	var requestedSteps []string
 	var unexpected []string
 	badCourses := false
+	badSteps, multi := false, false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
 		defer mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
 		var data any
+		success := true
 		switch r.URL.Path {
 		case "/tempo-talents/":
 			w.Header().Set("Content-Type", "text/html")
@@ -53,19 +56,30 @@ func TestSelectionBrowserFixture(t *testing.T) {
 				data = []any{map[string]any{"coursesId": []string{"invalid"}}}
 			}
 		case "/gateway/tempo-talents/api/tt-course-challenge/challenge/list":
-			if r.URL.Query().Get("courseId") != "course-2" || r.URL.Query().Get("classroomId") != "second" {
+			course := r.URL.Query().Get("courseId")
+			if (course != "course-2" && !(multi && course == "course-1")) || r.URL.Query().Get("classroomId") != "second" {
 				unexpected = append(unexpected, "wrong experiment or classroom in step list")
 			}
 			data = map[string]any{"rows": []any{
 				map[string]any{"stepId": "selected-step", "name": "目标关卡", "sequence": 1},
 				map[string]any{"stepId": "other-step", "name": "未选关卡", "sequence": 2},
+				map[string]any{"stepId": "completed-step", "name": "已完成关卡", "sequence": 3, "finished": true},
 			}}
+			if course == "course-1" {
+				data = map[string]any{"rows": []any{
+					map[string]any{"stepId": "course-1-other", "name": "基础第一关", "sequence": 1},
+					map[string]any{"stepId": "course-1-selected", "name": "基础第二关", "sequence": 2},
+				}}
+			}
+			if badSteps {
+				success = false
+			}
 		case "/gateway/tempo-talents/api/tt-course-challenge/challenge":
 			requestedSteps = append(requestedSteps, r.URL.Query().Get("courseStepId"))
 			if r.URL.Query().Get("classroomId") != "second" {
 				unexpected = append(unexpected, "wrong classroom in question")
 			}
-			data = map[string]any{"courseStepId": "selected-step", "questionType": "select", "questionInfo": map[string]any{"selectOrJudgeList": []any{map[string]any{"questionId": 1, "type": "single", "title": "fixture", "content": []string{"A", "B"}}}}}
+			data = map[string]any{"courseStepId": r.URL.Query().Get("courseStepId"), "questionType": "select", "questionInfo": map[string]any{"selectOrJudgeList": []any{map[string]any{"questionId": 1, "type": "single", "title": "fixture", "content": []string{"A", "B"}}}}}
 		default:
 			if r.URL.Path != "/favicon.ico" {
 				unexpected = append(unexpected, r.URL.Path)
@@ -73,7 +87,7 @@ func TestSelectionBrowserFixture(t *testing.T) {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		if err := json.NewEncoder(w).Encode(map[string]any{"success": true, "data": data}); err != nil {
+		if err := json.NewEncoder(w).Encode(map[string]any{"success": success, "data": data}); err != nil {
 			t.Error(err)
 		}
 	}))
@@ -81,15 +95,20 @@ func TestSelectionBrowserFixture(t *testing.T) {
 	for _, tc := range []struct {
 		name, input, want string
 		badCourses        bool
-		questions         int
+		badSteps, multi   bool
+		questions         []string
 	}{
-		{"single step demo", "4\n2\n2\n1\n\n0\n", "生成答案 1 关", false, 1},
-		{"cancel single trial at confirmation", "7\n2\n2\n1\n0\n0\n", "已取消", false, 0},
-		{"friendly platform data failure", "4\n2\n0\n", "暂时无法读取平台数据", true, 0},
+		{name: "single step demo", input: "4\n2\n2\n1\n\n0\n", want: "生成答案 1 关", questions: []string{"selected-step"}},
+		{name: "independent experiment choices", input: "4\n2\n1-2\n2\n1\n\n0\n", want: "生成答案 2 关", multi: true, questions: []string{"course-1-selected", "selected-step"}},
+		{name: "cancel completed single trial at confirmation", input: "7\n2\n2\n3\n0\n0\n", want: "已取消"},
+		{name: "cancel at step list", input: "4\n2\n2\n0\n0\n", want: "已取消"},
+		{name: "unavailable list does not initialize environment", input: "4\n2\n2\n0\n", want: "关卡列表暂不可用", badSteps: true},
+		{name: "friendly platform data failure", input: "4\n2\n0\n", want: "暂时无法读取平台数据", badCourses: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			mu.Lock()
 			requestedSteps, unexpected, badCourses = nil, nil, tc.badCourses
+			badSteps, multi = tc.badSteps, tc.multi
 			mu.Unlock()
 			dir := t.TempDir()
 			cfg := config.Defaults()
@@ -117,6 +136,9 @@ func TestSelectionBrowserFixture(t *testing.T) {
 			if !strings.Contains(output.String(), tc.want) || strings.Contains(output.String(), "time=") || strings.Contains(output.String(), "数据格式错误:") {
 				t.Fatal(output.String())
 			}
+			if !tc.badCourses && !tc.badSteps && !strings.Contains(output.String(), "1. 目标关卡") {
+				t.Fatal("missing actual step names", output.String())
+			}
 			if tc.badCourses {
 				log, err := os.ReadFile(a.logFile())
 				if err != nil || !strings.Contains(string(log), "数据格式错误") {
@@ -129,7 +151,7 @@ func TestSelectionBrowserFixture(t *testing.T) {
 			}
 			mu.Lock()
 			defer mu.Unlock()
-			if len(unexpected) != 0 || len(requestedSteps) != tc.questions || tc.questions > 0 && requestedSteps[0] != "selected-step" {
+			if len(unexpected) != 0 || !reflect.DeepEqual(requestedSteps, tc.questions) {
 				t.Fatalf("unexpected calls=%v, questions=%v", unexpected, requestedSteps)
 			}
 		})

@@ -137,11 +137,15 @@ func (r *runtimeState) run(ctx context.Context, a *app, selection scope.Scope, p
 	if e != nil {
 		return e
 	}
-	plan, pick, e := a.selectPlan(ctx, courses, selection, pick)
+	courses, pick, e = a.selectPlan(ctx, courses, selection, pick)
 	if e != nil {
 		return e
 	}
-	a.showRunPlan(r.classroom, plan, pick)
+	plan, e := a.selectStepPlan(ctx, plat, courses, pick, cfg.Run.SkipPassed)
+	if e != nil {
+		return e
+	}
+	a.showRunPlan(r.classroom, plan)
 	if !a.yes {
 		if e = a.confirmRun(ctx); e != nil {
 			return e
@@ -209,28 +213,18 @@ func (r *runtimeState) run(ctx context.Context, a *app, selection scope.Scope, p
 		provider = web
 	}
 	engine := solver.Engine{Platform: plat, AI: provider, Sink: sink, MaxRetry: cfg.Run.MaxRetry, DryRun: a.dry, Demo: a.demo, PerChat: cfg.Run.PerChat}
-	keep := func(s core.StepRef) bool {
-		if cfg.Run.SkipPassed && s.Finished {
-			return false
-		}
-		if len(pick) == 0 {
-			return true
-		}
-		for _, n := range pick {
-			if n == s.Sequence {
-				return true
-			}
-		}
-		return false
-	}
 	total := 0
-	for _, c := range plan {
-		steps, e := plat.ListSteps(ctx, c.Identifier())
+	for _, entry := range plan {
+		if entry.steps != nil {
+			total += len(entry.steps)
+			continue
+		}
+		steps, e := plat.ListSteps(ctx, entry.course.Identifier())
 		if e != nil {
 			continue
 		}
 		for _, s := range steps {
-			if keep(s) {
+			if entry.keep(s, cfg.Run.SkipPassed) {
 				total++
 			}
 		}
@@ -239,13 +233,14 @@ func (r *runtimeState) run(ctx context.Context, a *app, selection scope.Scope, p
 		total = a.limit
 	}
 	index, passed := 0, 0
-	for _, c := range plan {
+	for _, entry := range plan {
 		if a.limit > 0 && index >= a.limit {
 			break
 		}
 		if e = ctx.Err(); e != nil {
 			return e
 		}
+		c := entry.course
 		fmt.Fprintf(a.output(), "\n正在准备实验：[%s] %s\n", c.Number(), c.Label())
 		steps, e := plat.Prepare(ctx, c.Identifier())
 		if e != nil {
@@ -255,7 +250,7 @@ func (r *runtimeState) run(ctx context.Context, a *app, selection scope.Scope, p
 		sort.SliceStable(steps, func(i, j int) bool { return steps[i].Sequence < steps[j].Sequence })
 		practice := strings.TrimRight(cfg.Platform.BaseURL, "/") + "/#/practicum/practiceDetail?id=" + c.Identifier() + "&classroomId=" + plat.ClassroomID + "&tenancyId=" + plat.ClassroomID
 		for _, s := range steps {
-			if !keep(s) {
+			if !entry.keep(s, cfg.Run.SkipPassed) {
 				continue
 			}
 			if a.limit > 0 && index >= a.limit {

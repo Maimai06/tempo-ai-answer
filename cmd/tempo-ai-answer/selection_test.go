@@ -81,8 +81,8 @@ func courseFixtures() []core.Course {
 	}
 }
 
-func TestExperimentAndStepRanges(t *testing.T) {
-	a, output := selectionApp("\n9\n3-1\n1-3,5,2\n\n1-2,5\n")
+func TestExperimentRanges(t *testing.T) {
+	a, output := selectionApp("\n9\n3-1\n1-3,5,2\n")
 	plan, steps, err := a.selectPlan(context.Background(), courseFixtures(), scope.Scope{}, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -91,7 +91,7 @@ func TestExperimentAndStepRanges(t *testing.T) {
 	for _, course := range plan {
 		ids = append(ids, course.Identifier())
 	}
-	if !reflect.DeepEqual(ids, []string{"a", "b", "c", "e"}) || !reflect.DeepEqual(steps, []int{1, 2, 5}) {
+	if !reflect.DeepEqual(ids, []string{"a", "b", "c", "e"}) || len(steps) != 0 {
 		t.Fatalf("unexpected selected IDs %v, steps %v", ids, steps)
 	}
 	if !strings.Contains(output.String(), "[2-1] Python") || !strings.Contains(output.String(), "留空不会选择全部") {
@@ -132,7 +132,7 @@ func TestExplicitExperimentFilters(t *testing.T) {
 }
 
 func TestSelectionCancellationAndEmptyScope(t *testing.T) {
-	for _, input := range []string{"0\n", "1\n0\n", "", "\n"} {
+	for _, input := range []string{"0\n", "", "\n"} {
 		a, _ := selectionApp(input)
 		if _, _, err := a.selectPlan(context.Background(), courseFixtures(), scope.Scope{}, nil); err == nil {
 			t.Fatalf("cancelled or empty input %q selected a plan", input)
@@ -162,7 +162,14 @@ func (*cancelPage) Navigate(context.Context, string) error { return nil }
 func (p *cancelPage) Eval(_ context.Context, js string, out any) error {
 	p.requests++
 	if !strings.Contains(js, "/classroomCourseListDetail") {
-		return errors.New("selection touched an unexpected endpoint")
+		if !strings.Contains(js, "/challenge/list") {
+			return errors.New("selection touched an unexpected endpoint")
+		}
+		b, err := json.Marshal(map[string]any{"status": 200, "json": map[string]any{"success": true, "data": map[string]any{"rows": []core.StepRef{{ID: "fixture-step", Name: "目标关卡", Sequence: 1}}}}})
+		if err != nil {
+			return err
+		}
+		return json.Unmarshal(b, out)
 	}
 	b, err := json.Marshal(map[string]any{"status": 200, "json": map[string]any{"success": true, "data": courseFixtures()}})
 	if err != nil {
@@ -175,7 +182,7 @@ func TestCancelBeforeOpeningAIOrEnvironment(t *testing.T) {
 	page := &cancelPage{}
 	r := runtimeState{plat: &platform.Client{Page: page, BaseURL: "https://example.invalid/", ClassroomID: "fixture"}}
 	a, _ := selectionApp("1\n0\n")
-	if err := r.run(context.Background(), a, scope.Scope{}, nil); !errors.Is(err, errSelectionCanceled) || page.requests != 1 {
+	if err := r.run(context.Background(), a, scope.Scope{}, nil); !errors.Is(err, errSelectionCanceled) || page.requests != 2 {
 		t.Fatal(err, page.requests)
 	}
 }

@@ -8,8 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/Maimai06/tempo-ai-answer/internal/core"
 )
 
 type menuAction struct {
@@ -66,18 +64,23 @@ func (a *app) modeLabel() string {
 	return "正式运行 · 会提交答案和评测"
 }
 
-func (a *app) showRunPlan(classroom string, plan []core.Course, steps []int) {
+func (a *app) showRunPlan(classroom string, plan []coursePlan) {
 	fmt.Fprintln(a.output(), "\n────────────────────────────────────────\n确认本次运行")
 	fmt.Fprintln(a.output(), "模式：", a.modeLabel())
 	fmt.Fprintln(a.output(), "课堂：", classroom)
 	fmt.Fprintf(a.output(), "实验：已选 %d 个\n", len(plan))
-	for _, course := range plan {
+	for _, entry := range plan {
+		course := entry.course
 		fmt.Fprintf(a.output(), "  [%s] %s\n", course.Number(), course.Label())
-	}
-	if len(steps) > 0 {
-		fmt.Fprintf(a.output(), "关卡：%s（适用于每个已选实验）\n", formatNumbers(steps))
-	} else {
-		fmt.Fprintln(a.output(), "关卡：已选实验内所有未跳过的关卡")
+		if entry.steps != nil {
+			for _, step := range entry.steps {
+				fmt.Fprintf(a.output(), "    - %s [%s]\n", stepName(step), stepStatus(step, false))
+			}
+		} else if len(entry.numbers) > 0 {
+			fmt.Fprintf(a.output(), "    关卡编号：%s\n", formatNumbers(entry.numbers))
+		} else {
+			fmt.Fprintln(a.output(), "    关卡：本实验内所有未跳过的关卡")
+		}
 	}
 	if a.limit > 0 {
 		fmt.Fprintf(a.output(), "数量：本次最多处理 %d 关\n", a.limit)
@@ -164,6 +167,7 @@ func describeFailure(err error) failureMessage {
 		return failureMessage{"配置还没有准备好", "请编辑配置文件：" + cfg.path + "\n" + cfg.err.Error()}
 	}
 	text := strings.ToLower(err.Error())
+	var stepErr *stepListError
 	switch {
 	case errors.Is(err, context.Canceled), errors.Is(err, io.EOF):
 		return failureMessage{"操作已停止", "可以重新启动软件并选择需要的功能。"}
@@ -171,6 +175,8 @@ func describeFailure(err error) failureMessage {
 		return failureMessage{"暂时无法读取平台数据", "请使用最新版本重试；仍失败时，把下方日志中的错误信息反馈给开发者。"}
 	case errors.Is(err, context.DeadlineExceeded), strings.Contains(text, "err_connection"), strings.Contains(text, "failed to fetch"), strings.Contains(text, "err_name_not_resolved"), strings.Contains(text, "timeout"), strings.Contains(text, "超时"):
 		return failureMessage{"连接未成功", "请确认已接入校园网，并在浏览器中检查平台和 DeepSeek 是否能打开，再重试。"}
+	case errors.As(err, &stepErr):
+		return failureMessage{"关卡列表暂不可用", "请在平台检查实验「" + stepErr.course + "」能否打开、实践环境是否已启动，再重新选择。仍失败时请提供日志。"}
 	case strings.Contains(text, "deepseek"), strings.Contains(text, "ai 回复"):
 		return failureMessage{"AI 暂时不可用", "请先选 1 完成 DeepSeek 登录，再选 5 检查 AI 连接。"}
 	case strings.Contains(text, "登录"):

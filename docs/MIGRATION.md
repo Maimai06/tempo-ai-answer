@@ -23,11 +23,20 @@
 
 - 用户测试包：`dev-a8dd6884`，macOS arm64；平台登录及登录态保存成功，执行 `run --limit 1 --dry-run` 时失败。
 - 报错接口：`/tt-classroom/classroomCourseListDetail`；错误为 `strconv.ParseInt: parsing "": invalid syntax`，发生在课程列表解析阶段。
-- 离线复现：`core.ID.UnmarshalJSON` 对 JSON `null` 解码得到空 `json.Number`，随后执行整数转换，产生与截图一致的错误；课程章节与实验共用模型，`id`、`coursesId`、`courseId` 中有可选字段。原始接口响应尚未采集，实际触发字段待接回校园网后确认。
+- 离线复现：`core.ID.UnmarshalJSON` 对 JSON `null` 解码得到空 `json.Number`，随后执行整数转换，产生与截图一致的错误；课程章节与实验共用模型，`id`、`coursesId`、`courseId` 中有可选字段。校园网实测进一步确认，practice 响应中存在 3 个章节 `coursesId: null`；仅检查字段类型与计数，未保存原始响应。
 - [x] 使用合成的可空课程 ID 接口 fixture 复现并修复兼容问题；仅课程模型允许可选 ID 为 `null`，必填 ID 的严格校验保留，实验没有任何可用 ID 时明确报错。覆盖嵌套章节、数字 ID 精度、备用 ID、结构体复用和非法类型。
-- [ ] 校园网恢复后，验证真实课程清单与单关 dry-run；离线测试通过不代表真实业务已经验收。
+- [x] 校园网恢复后，验证真实课程清单与单关 dry-run；具体范围见下方实测记录，未提交答案或平台评测。
 
 本轮本地 `scripts/check.sh` 已通过（格式、依赖校验、vet、race 测试、覆盖率门槛、build）；验证时关闭依赖下载，未请求真实平台。可执行文件启动检查使用占位配置，未启动平台浏览器。
+
+## 校园网单关实测（2026-10-20）
+
+- 测试版本：macOS arm64 `dev-7f10a862`（提交 `7f10a8625e304639c209c59e070087c40f0be625`），读取程序同目录的用户配置，复用工具独立浏览器 profile。
+- `list` 正常退出：practice 27 个、training 2 个、combat 1 个；practice 中 12 个实验可直接读取，共 59 关。其余 15 个 practice 的接口明确返回“实践环境尚未初始化或已关闭”，没有发生课程解析错误；本轮未初始化这些环境。
+- 仅测试第 1 章第 1 个实验的第 1 关（选择题）。该关已完成，使用临时配置设置 `skip_passed=false`、`max_retry=0`；保留用户原配置，测试后删除临时文件。
+- 本地假 AI 演示与真实 DeepSeek 单关 dry-run 均正常退出；真实运行参数固定为 `--scope 1-1 --steps 1 --limit 1 --dry-run --yes`，输出“处理 1 关，成功 1 关（demo=false, dry-run=true）”，随后报告清理 1 个本次新对话。
+- 监控面板实测进度为 `1/1`，显示选择题及 AI 调用状态。仅生成答案，未调用保存答案或评测接口；不将 dry-run 的“成功”视为题目判分通过。
+- 编程题、多文件、实践环境初始化、真实提交评测及其他系统运行仍待验收；本轮按用户要求只运行上述一关。
 
 ## v1 行为对照
 

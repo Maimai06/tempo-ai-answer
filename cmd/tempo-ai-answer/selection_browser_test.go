@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -24,6 +25,7 @@ func TestSelectionBrowserFixture(t *testing.T) {
 	var mu sync.Mutex
 	var requestedSteps []string
 	var unexpected []string
+	badCourses := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
 		defer mu.Unlock()
@@ -47,6 +49,9 @@ func TestSelectionBrowserFixture(t *testing.T) {
 				map[string]any{"coursesId": "course-2", "coursesName": "选定实验", "sort": 2},
 				map[string]any{"coursesId": "course-3", "coursesName": "另一个未选实验", "sort": 3},
 			}}}
+			if badCourses {
+				data = []any{map[string]any{"coursesId": []string{"invalid"}}}
+			}
 		case "/gateway/tempo-talents/api/tt-course-challenge/challenge/list":
 			if r.URL.Query().Get("courseId") != "course-2" || r.URL.Query().Get("classroomId") != "second" {
 				unexpected = append(unexpected, "wrong experiment or classroom in step list")
@@ -73,30 +78,60 @@ func TestSelectionBrowserFixture(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	dir := t.TempDir()
-	cfg := config.Defaults()
-	cfg.Platform.BaseURL, cfg.Platform.Username, cfg.Platform.Password = server.URL+"/tempo-talents/", "fixture", "fixture"
-	// 菜单允许覆盖配置里的默认课堂。
-	cfg.Platform.ClassroomID = "first"
-	cfg.Run.Delay = 0
-	encoded, err := json.Marshal(cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = os.WriteFile(filepath.Join(dir, "config.json"), encoded, 0600); err != nil {
-		t.Fatal(err)
-	}
-	a := &app{reader: bufio.NewReader(strings.NewReader("4\n2\n2\n1\n\n0\n")), dataDir: dir}
-	root := command()
-	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
-	defer cancel()
-	root.SetContext(ctx)
-	if err = a.menu(root); err != nil {
-		t.Fatal(err)
-	}
-	mu.Lock()
-	defer mu.Unlock()
-	if len(unexpected) != 0 || len(requestedSteps) != 1 || requestedSteps[0] != "selected-step" {
-		t.Fatalf("unexpected calls=%v, questions=%v", unexpected, requestedSteps)
+	for _, tc := range []struct {
+		name, input, want string
+		badCourses        bool
+		questions         int
+	}{
+		{"single step demo", "4\n2\n2\n1\n\n0\n", "生成答案 1 关", false, 1},
+		{"cancel single trial at confirmation", "7\n2\n2\n1\n0\n0\n", "已取消", false, 0},
+		{"friendly platform data failure", "4\n2\n0\n", "暂时无法读取平台数据", true, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			mu.Lock()
+			requestedSteps, unexpected, badCourses = nil, nil, tc.badCourses
+			mu.Unlock()
+			dir := t.TempDir()
+			cfg := config.Defaults()
+			cfg.Platform.BaseURL, cfg.Platform.Username, cfg.Platform.Password = server.URL+"/tempo-talents/", "fixture", "fixture"
+			// 菜单允许覆盖配置里的默认课堂。
+			cfg.Platform.ClassroomID = "first"
+			cfg.Run.Delay = 0
+			encoded, err := json.Marshal(cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			path := filepath.Join(dir, "config.json")
+			if err = os.WriteFile(path, encoded, 0600); err != nil {
+				t.Fatal(err)
+			}
+			output := &bytes.Buffer{}
+			a := &app{reader: bufio.NewReader(strings.NewReader(tc.input)), writer: output, dataDir: dir}
+			root := command()
+			ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+			defer cancel()
+			root.SetContext(ctx)
+			if err = a.menu(root); err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(output.String(), tc.want) || strings.Contains(output.String(), "time=") || strings.Contains(output.String(), "数据格式错误:") {
+				t.Fatal(output.String())
+			}
+			if tc.badCourses {
+				log, err := os.ReadFile(a.logFile())
+				if err != nil || !strings.Contains(string(log), "数据格式错误") {
+					t.Fatal("missing diagnostic log", err)
+				}
+			}
+			after, err := os.ReadFile(path)
+			if err != nil || !bytes.Equal(after, encoded) {
+				t.Fatal("menu modified personal configuration", err)
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			if len(unexpected) != 0 || len(requestedSteps) != tc.questions || tc.questions > 0 && requestedSteps[0] != "selected-step" {
+				t.Fatalf("unexpected calls=%v, questions=%v", unexpected, requestedSteps)
+			}
+		})
 	}
 }

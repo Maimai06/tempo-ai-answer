@@ -29,10 +29,12 @@ type app struct {
 	reader                            *bufio.Reader
 	writer                            io.Writer
 	dataDir, configPath               string
+	logPath                           string
 	scope, course, steps, classroomID string
 	limit                             int
 	headless, demo, dry, yes, local   bool
 	inMenu                            bool
+	includePassed                     bool
 }
 
 func main() {
@@ -40,13 +42,20 @@ func main() {
 	defer stop()
 	root := command()
 	if e := root.ExecuteContext(ctx); e != nil {
-		fmt.Fprintln(os.Stderr, "错误：", e)
+		if errors.Is(e, context.Canceled) {
+			fmt.Fprintln(os.Stderr, "操作已停止，可以重新启动软件。")
+		} else {
+			fmt.Fprintln(os.Stderr, "错误：", e)
+		}
 		os.Exit(1)
 	}
 }
 func command() *cobra.Command {
 	a := &app{reader: bufio.NewReader(os.Stdin)}
-	root := &cobra.Command{Use: "tempo-ai-answer", Short: "Tempo 实训助手 · Go 跨平台版", Version: version + " (" + commit + ")", SilenceUsage: true, SilenceErrors: true, RunE: func(cmd *cobra.Command, _ []string) error { return a.menu(cmd) }}
+	root := &cobra.Command{Use: "tempo-ai-answer", Short: "Tempo 实训助手 · Go 跨平台版", Version: version + " (" + commit + ")", SilenceUsage: true, SilenceErrors: true, RunE: func(cmd *cobra.Command, _ []string) error {
+		a.reader, a.writer = bufio.NewReader(cmd.InOrStdin()), cmd.OutOrStdout()
+		return a.menu(cmd)
+	}}
 	root.PersistentFlags().StringVar(&a.dataDir, "data-dir", "", "profile 和日志目录；显式指定且未传 --config 时也从此处读取配置")
 	root.PersistentFlags().StringVar(&a.configPath, "config", "", "配置文件路径（默认程序同目录的 config.json），兼容 v1 配置")
 	root.PersistentFlags().StringVar(&a.classroomID, "classroom", "", "课堂 ID（使用 classrooms 查看），优先于配置文件")
@@ -118,17 +127,18 @@ func (a *app) localCheck() error {
 	if e = os.Remove(d); e != nil {
 		return e
 	}
-	fmt.Printf("[OK] %s (%s)\n[OK] 数据目录：%s\n[配置路径] %s\n[OK] 内嵌配置和面板资源\n", version, commit, a.dataDir, a.configPath)
+	fmt.Fprintf(a.output(), "[就绪] 版本：%s\n[就绪] 数据目录：%s\n[配置路径] %s\n[就绪] 内嵌配置和面板资源\n", version, a.dataDir, a.configPath)
 	cs := browser.Candidates()
 	if len(cs) == 0 {
 		return errors.New("未找到浏览器；当前为轻量包，需要 Edge/Chrome 或完整 Chromium 包")
 	}
 	for _, p := range cs {
-		fmt.Println("[OK] 浏览器候选：", p)
+		fmt.Fprintln(a.output(), "[就绪] 浏览器：", p)
 	}
 	return nil
 }
-func (a *app) execute(ctx context.Context, name string) error {
+func (a *app) execute(ctx context.Context, name string) (runErr error) {
+	a.logPath = ""
 	if name == "run" {
 		if err := a.validateRunSelection(); err != nil {
 			return err
@@ -150,24 +160,42 @@ func (a *app) execute(ctx context.Context, name string) error {
 	}
 	cfg, e := config.Load(a.configPath)
 	if errors.Is(e, config.ErrCreated) {
-		fmt.Printf("%s\n%s\n", e, a.configPath)
+		a.showConfigCreated()
 		return nil
 	}
 	if e != nil {
-		return fmt.Errorf("配置文件 %s: %w", a.configPath, e)
+		return &configFileError{path: a.configPath, err: e}
 	}
-	fmt.Printf("[OK] 配置文件：%s\n", a.configPath)
-	l, e := logger.Open(filepath.Join(a.dataDir, "logs"), cfg.Platform.Password, cfg.Platform.Username, os.Getenv("GITHUB_TOKEN"))
+	if a.includePassed {
+		cfg.Run.SkipPassed = false
+	}
+	fmt.Fprintf(a.output(), "[就绪] 配置文件：%s\n", a.configPath)
+	l, e := logger.OpenWithConsole(filepath.Join(a.dataDir, "logs"), a.output(), cfg.Platform.Password, cfg.Platform.Username, os.Getenv("GITHUB_TOKEN"))
 	if e != nil {
 		return e
 	}
+	a.logPath = a.logFile()
 	defer func() {
+		if runErr != nil && !errors.Is(runErr, errSelectionCanceled) {
+			l.RecordError(runErr)
+		}
 		if err := l.Close(); err != nil {
 			fmt.Fprintln(os.Stderr, "日志关闭失败：", err)
 		}
 	}()
 	panel := dashboard.New()
-	sink := core.Sink(func(e core.Event) { e.Text = l.Redact(e.Text); panel.Consume(e); l.Consume(e) })
+	sink := core.Sink(func(e core.Event) {
+		e.Text = l.Redact(e.Text)
+		if e.Kind == "error" {
+			l.RecordError(errors.New(e.Text))
+			message := describeFailure(errors.New(e.Text))
+			e.Text = message.title + "。" + message.hint
+			fmt.Fprintln(a.output(), "[未完成]", e.Text)
+		} else {
+			l.Consume(e)
+		}
+		panel.Consume(e)
+	})
 	session, e := browser.Start(context.WithoutCancel(ctx), filepath.Join(a.dataDir, "profile"), name == "classrooms" || name == "list" || name == "check" || name == "run" && a.headless)
 	if e != nil {
 		return e
@@ -186,13 +214,16 @@ func (a *app) execute(ctx context.Context, name string) error {
 	if e != nil {
 		return e
 	}
-	fmt.Printf("[OK] 平台登录：%s\n", me.Name)
+	fmt.Fprintf(a.output(), "[就绪] 平台已登录：%s\n", me.Name)
 	r.me = me
 	if name == "login" {
 		return r.loginAI(ctx, a.enter)
 	}
 	if name == "classrooms" {
 		return r.classrooms(ctx)
+	}
+	if name == "run" {
+		fmt.Fprintln(a.output(), "\n第 1 步 · 选择课堂")
 	}
 	classroom, e := a.selectClassroom(ctx, plat, cfg.Platform.ClassroomID)
 	if errors.Is(e, errSelectionCanceled) {
@@ -203,6 +234,7 @@ func (a *app) execute(ctx context.Context, name string) error {
 		return e
 	}
 	plat.ClassroomID = string(classroom.ID)
+	r.classroom = strings.TrimSpace(classroom.Name + " " + classroom.Class)
 	fmt.Fprintf(a.output(), "[OK] 已选课堂：%s\n", classroom.Name)
 	if name == "list" {
 		return r.list(ctx)
@@ -224,32 +256,43 @@ func (a *app) enter(ctx context.Context) error {
 }
 func (a *app) menu(cmd *cobra.Command) error {
 	a.inMenu = true
+	if e := a.paths(); e != nil {
+		return e
+	}
+	a.showWelcome()
 	for {
-		fmt.Println("\nTempo AI 助手\n1 首次登录  2 课程清单  3 自动答题  4 演示  5 AI 测试  6 环境自检  0 退出")
-		choice, e := a.readLine(cmd.Context(), "请选择 > ")
+		a.showMenu()
+		choice, e := a.readLine(cmd.Context(), "输入功能编号 > ")
 		if e != nil {
+			if errors.Is(e, io.EOF) {
+				return nil
+			}
 			return e
 		}
 		choice = strings.TrimSpace(choice)
-		name := map[string]string{"1": "login", "2": "list", "3": "run", "4": "run", "5": "ai-test", "6": "check"}[choice]
 		if choice == "0" {
+			fmt.Fprintln(a.output(), "已退出，可以关闭窗口。")
 			return nil
 		}
-		if name == "" {
-			fmt.Println("无效选项")
+		name, ok := a.menuCommand(choice)
+		if !ok {
+			fmt.Fprintln(a.output(), "请输入 0 到 7 的功能编号，例如输入 7 测试一关。")
 			continue
 		}
-		a.demo = choice == "4"
-		if name == "run" {
-			a.scope, a.course, a.steps = "", "", ""
-		}
+		a.logPath = ""
 		if name == "check" {
 			e = a.localCheck()
 		} else {
+			if name == "run" {
+				fmt.Fprintln(a.output(), "\n本次模式：", a.modeLabel())
+				if a.limit > 0 {
+					fmt.Fprintf(a.output(), "最多处理 %d 关。\n", a.limit)
+				}
+			}
 			e = a.execute(cmd.Context(), name)
 		}
 		if e != nil {
-			fmt.Println("操作失败：", e)
+			a.showFailure(e)
 		}
 		if cmd.Context().Err() != nil {
 			return cmd.Context().Err()

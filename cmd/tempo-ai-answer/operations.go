@@ -21,13 +21,14 @@ import (
 
 // runtimeState 集中持有本次命令的依赖，不使用全局配置。
 type runtimeState struct {
-	cfg     config.Config
-	log     *logger.Logger
-	panel   *dashboard.Server
-	session *browser.Session
-	plat    *platform.Client
-	sink    core.Sink
-	me      core.User
+	cfg       config.Config
+	log       *logger.Logger
+	panel     *dashboard.Server
+	session   *browser.Session
+	plat      *platform.Client
+	sink      core.Sink
+	me        core.User
+	classroom string
 }
 
 func (r *runtimeState) aiTest(ctx context.Context) error {
@@ -140,18 +141,9 @@ func (r *runtimeState) run(ctx context.Context, a *app, selection scope.Scope, p
 	if e != nil {
 		return e
 	}
-	fmt.Println("运行清单：")
-	for _, c := range plan {
-		fmt.Printf("  %s %s\n", c.Number(), c.Label())
-	}
-	if len(pick) > 0 {
-		fmt.Println("关卡范围：", pick)
-	} else {
-		fmt.Println("关卡范围：已选实验内所有未跳过的关卡")
-	}
+	a.showRunPlan(r.classroom, plan, pick)
 	if !a.yes {
-		fmt.Println("请核对清单，按回车开始，Ctrl+C 取消。")
-		if e = a.enter(ctx); e != nil {
+		if e = a.confirmRun(ctx); e != nil {
 			return e
 		}
 	}
@@ -165,7 +157,7 @@ func (r *runtimeState) run(ctx context.Context, a *app, selection scope.Scope, p
 			l.Log.Warn("面板关闭失败")
 		}
 	}()
-	fmt.Println("监控面板：", panel.URL)
+	fmt.Fprintln(a.output(), "监控面板：", panel.URL)
 	if !a.headless {
 		if e = session.NewPage().OpenLocal(ctx, panel.URL); e != nil {
 			l.Log.Warn("面板未能自动打开，请访问上述地址")
@@ -254,6 +246,7 @@ func (r *runtimeState) run(ctx context.Context, a *app, selection scope.Scope, p
 		if e = ctx.Err(); e != nil {
 			return e
 		}
+		fmt.Fprintf(a.output(), "\n正在准备实验：[%s] %s\n", c.Number(), c.Label())
 		steps, e := plat.Prepare(ctx, c.Identifier())
 		if e != nil {
 			sink.Emit(core.Event{Kind: "warn", Text: "实践环境启动失败：" + e.Error()})
@@ -269,6 +262,7 @@ func (r *runtimeState) run(ctx context.Context, a *app, selection scope.Scope, p
 				break
 			}
 			index++
+			fmt.Fprintf(a.output(), "[进度] 正在处理第 %d 关 · %s\n", s.Sequence, s.Name)
 			panel.Overview(me.Name, c.Number()+" "+c.Label(), practice, index, total)
 			ok, e := engine.Solve(ctx, string(s.ID), s.Sequence)
 			if e != nil {
@@ -285,6 +279,6 @@ func (r *runtimeState) run(ctx context.Context, a *app, selection scope.Scope, p
 			}
 		}
 	}
-	fmt.Printf("处理 %d 关，成功 %d 关（demo=%v, dry-run=%v）\n", index, passed, a.demo, a.dry || a.demo)
+	a.showRunSummary(index, passed)
 	return nil
 }

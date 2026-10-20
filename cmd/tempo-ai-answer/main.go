@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -25,11 +26,13 @@ var version = "dev"
 var commit = "unknown"
 
 type app struct {
-	reader                          *bufio.Reader
-	dataDir, configPath             string
-	scope, course, steps            string
-	limit                           int
-	headless, demo, dry, yes, local bool
+	reader                            *bufio.Reader
+	writer                            io.Writer
+	dataDir, configPath               string
+	scope, course, steps, classroomID string
+	limit                             int
+	headless, demo, dry, yes, local   bool
+	inMenu                            bool
 }
 
 func main() {
@@ -46,7 +49,8 @@ func command() *cobra.Command {
 	root := &cobra.Command{Use: "tempo-ai-answer", Short: "Tempo 实训助手 · Go 跨平台版", Version: version + " (" + commit + ")", SilenceUsage: true, SilenceErrors: true, RunE: func(cmd *cobra.Command, _ []string) error { return a.menu(cmd) }}
 	root.PersistentFlags().StringVar(&a.dataDir, "data-dir", "", "profile 和日志目录；显式指定且未传 --config 时也从此处读取配置")
 	root.PersistentFlags().StringVar(&a.configPath, "config", "", "配置文件路径（默认程序同目录的 config.json），兼容 v1 配置")
-	for _, name := range []string{"login", "list", "ai-test"} {
+	root.PersistentFlags().StringVar(&a.classroomID, "classroom", "", "课堂 ID（使用 classrooms 查看），优先于配置文件")
+	for _, name := range []string{"login", "classrooms", "list", "ai-test"} {
 		n := name
 		root.AddCommand(&cobra.Command{Use: n, Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error { return a.execute(cmd.Context(), n) }})
 	}
@@ -125,6 +129,11 @@ func (a *app) localCheck() error {
 	return nil
 }
 func (a *app) execute(ctx context.Context, name string) error {
+	if name == "run" {
+		if err := a.validateRunSelection(); err != nil {
+			return err
+		}
+	}
 	if e := a.paths(); e != nil {
 		return e
 	}
@@ -159,7 +168,7 @@ func (a *app) execute(ctx context.Context, name string) error {
 	}()
 	panel := dashboard.New()
 	sink := core.Sink(func(e core.Event) { e.Text = l.Redact(e.Text); panel.Consume(e); l.Consume(e) })
-	session, e := browser.Start(context.WithoutCancel(ctx), filepath.Join(a.dataDir, "profile"), name == "list" || name == "check" || name == "run" && a.headless)
+	session, e := browser.Start(context.WithoutCancel(ctx), filepath.Join(a.dataDir, "profile"), name == "classrooms" || name == "list" || name == "check" || name == "run" && a.headless)
 	if e != nil {
 		return e
 	}
@@ -182,34 +191,42 @@ func (a *app) execute(ctx context.Context, name string) error {
 	if name == "login" {
 		return r.loginAI(ctx, a.enter)
 	}
-	if e = plat.EnsureClassroom(ctx); e != nil {
+	if name == "classrooms" {
+		return r.classrooms(ctx)
+	}
+	classroom, e := a.selectClassroom(ctx, plat, cfg.Platform.ClassroomID)
+	if errors.Is(e, errSelectionCanceled) {
+		fmt.Fprintln(a.output(), "已取消，未开始任务。")
+		return nil
+	}
+	if e != nil {
 		return e
 	}
+	plat.ClassroomID = string(classroom.ID)
+	fmt.Fprintf(a.output(), "[OK] 已选课堂：%s\n", classroom.Name)
 	if name == "list" {
 		return r.list(ctx)
 	}
 	if name == "check" {
 		return r.check(ctx)
 	}
-	return r.run(ctx, a, selection, pick)
+	e = r.run(ctx, a, selection, pick)
+	if errors.Is(e, errSelectionCanceled) {
+		fmt.Fprintln(a.output(), "已取消，未开始任务。")
+		return nil
+	}
+	return e
 }
 
 func (a *app) enter(ctx context.Context) error {
-	result := make(chan error, 1)
-	go func() { _, e := a.reader.ReadString('\n'); result <- e }()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case e := <-result:
-		return e
-	}
+	_, err := a.readLine(ctx, "")
+	return err
 }
 func (a *app) menu(cmd *cobra.Command) error {
-	reader := a.reader
+	a.inMenu = true
 	for {
 		fmt.Println("\nTempo AI 助手\n1 首次登录  2 课程清单  3 自动答题  4 演示  5 AI 测试  6 环境自检  0 退出")
-		fmt.Print("请选择 > ")
-		choice, e := reader.ReadString('\n')
+		choice, e := a.readLine(cmd.Context(), "请选择 > ")
 		if e != nil {
 			return e
 		}
@@ -224,12 +241,7 @@ func (a *app) menu(cmd *cobra.Command) error {
 		}
 		a.demo = choice == "4"
 		if name == "run" {
-			fmt.Print("范围（空为全部） > ")
-			text, e := reader.ReadString('\n')
-			if e != nil {
-				return e
-			}
-			a.scope = strings.TrimSpace(text)
+			a.scope, a.course, a.steps = "", "", ""
 		}
 		if name == "check" {
 			e = a.localCheck()

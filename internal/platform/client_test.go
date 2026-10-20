@@ -116,3 +116,11 @@ func TestCoursesRejectMissingExperimentID(t *testing.T) {
 		}
 	}
 }
+
+func TestMultipleClassroomsRequireSelection(t *testing.T) {
+	p := &fakePage{responses: []response{resp(`{"classroomListInfo":{"rows":[{"id":"first"},{"id":"second"}]}}`)}}
+	c := Client{Page: p, BaseURL: "https://example.invalid/"}
+	if err := c.EnsureClassroom(context.Background()); err == nil || c.ClassroomID != "" {
+		t.Fatal("silently selected the first classroom", c.ClassroomID, err)
+	}
+}

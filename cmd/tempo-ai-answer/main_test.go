@@ -80,3 +80,17 @@ func TestConfigErrorShowsLoadedPath(t *testing.T) {
 		t.Fatalf("expected actual config path in error, got %v", err)
 	}
 }
+
+func TestUnattendedRunRequiresExperimentScope(t *testing.T) {
+	dir := t.TempDir()
+	for _, flag := range []string{"--yes", "--headless"} {
+		root := command()
+		root.SetArgs([]string{"--data-dir", dir, "run", flag, "--steps", "1", "--dry-run"})
+		if err := root.Execute(); err == nil || !strings.Contains(err.Error(), "明确选择实验范围") {
+			t.Fatal(err)
+		}
+		if _, err := os.Stat(filepath.Join(dir, "config.json")); !os.IsNotExist(err) {
+			t.Fatal("unscoped unattended run touched user configuration")
+		}
+	}
+}

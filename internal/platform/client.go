@@ -161,7 +161,7 @@ func (c *Client) ListClassrooms(ctx context.Context) ([]core.Classroom, error) {
 	return data.Info.Rows, e
 }
 
-// EnsureClassroom 以 Client 中的课堂 ID 为运行期唯一来源。
+// EnsureClassroom 保留已指定课堂，仅在唯一课堂时自动选择，拒绝多课堂默认取首项。
 func (c *Client) EnsureClassroom(ctx context.Context) error {
 	if c.ClassroomID != "" && !strings.HasPrefix(c.ClassroomID, "YOUR_") {
 		return nil
@@ -172,6 +172,12 @@ func (c *Client) EnsureClassroom(ctx context.Context) error {
 	}
 	if len(cs) == 0 {
 		return errors.New("没有找到已加入的课堂")
+	}
+	if len(cs) > 1 {
+		return errors.New("有多个课堂，请先明确选择课堂")
+	}
+	if cs[0].ID == "" {
+		return errors.New("课堂列表缺少课堂 ID")
 	}
 	c.ClassroomID = string(cs[0].ID)
 	return nil

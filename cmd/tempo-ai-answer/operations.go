@@ -116,24 +116,38 @@ func (r *runtimeState) check(ctx context.Context) error {
 	fmt.Println("DeepSeek 登录态：", ok)
 	return nil
 }
+
+func (r *runtimeState) classrooms(ctx context.Context) error {
+	classrooms, err := r.plat.ListClassrooms(ctx)
+	if err != nil {
+		return err
+	}
+	if len(classrooms) == 0 {
+		return errors.New("没有找到已加入的课堂")
+	}
+	for _, classroom := range classrooms {
+		fmt.Printf("%s  %s  %s\n", classroom.ID, classroom.Name, classroom.Class)
+	}
+	return nil
+}
 func (r *runtimeState) run(ctx context.Context, a *app, selection scope.Scope, pick []int) error {
 	cfg, session, plat, me, panel, sink, l := r.cfg, r.session, r.plat, r.me, r.panel, r.sink, r.log
 	courses, e := plat.ListCourses(ctx, "practice")
 	if e != nil {
 		return e
 	}
-	plan := []core.Course{}
-	for _, c := range courses {
-		if selection.Match(c) && strings.Contains(c.Label(), a.course) {
-			plan = append(plan, c)
-		}
+	plan, pick, e := a.selectPlan(ctx, courses, selection, pick)
+	if e != nil {
+		return e
 	}
-	if len(plan) == 0 {
-		return errors.New("没有匹配到实验，请检查范围")
-	}
-	fmt.Println("范围：", selection.String())
+	fmt.Println("运行清单：")
 	for _, c := range plan {
 		fmt.Printf("  %s %s\n", c.Number(), c.Label())
+	}
+	if len(pick) > 0 {
+		fmt.Println("关卡范围：", pick)
+	} else {
+		fmt.Println("关卡范围：已选实验内所有未跳过的关卡")
 	}
 	if !a.yes {
 		fmt.Println("请核对清单，按回车开始，Ctrl+C 取消。")

@@ -12,7 +12,9 @@ Go v2 迁移版：通过本机 Edge / Chrome 驱动 Tempo 平台与 DeepSeek 网
 
 ```text
 tempo-ai-answer login
+tempo-ai-answer classrooms
 tempo-ai-answer list
+tempo-ai-answer --classroom "课堂ID" run --scope "第1章 1-3" --steps "1-2" --limit 2 --dry-run
 tempo-ai-answer run --scope "第1章 1-5"
 tempo-ai-answer run --scope "1-3" --steps "1-3,8" --limit 3 --dry-run
 tempo-ai-answer run --demo
@@ -21,7 +23,11 @@ tempo-ai-answer check
 tempo-ai-answer ai-test
 ```
 
-无参数进入交互菜单。`--demo` 使用假 AI 并强制不提交；`--dry-run` 使用真实 AI 并禁止编程题与选择题提交。`--headless` 后台运行，不自动打开监控面板。首次登录请用可见模式完成平台验证码及 DeepSeek 登录。
+无参数进入交互菜单。选择“自动答题”或“演示”后，先选择课堂，再按列表序号选择实验与关卡范围，例如实验 `1-3,5`、关卡 `1-2`。实验序号是本次列表的行号，列表同时显示章节编号；关卡范围分别应用于每个已选实验。输入 `0` 返回，留空会重新提示，不会默认选择全部实验或关卡。开始前显示最终实验清单和关卡范围；仅有一个课堂时自动选中。
+
+命令行可用 `classrooms` 查看课堂 ID，以 `--classroom "ID"` 指定课堂（优先于配置中的 `platform.classroom_id`），用 `--course "名称关键字"` 或 `--scope "第1章 1-3"` 选择实验，再用 `--steps "1-2,5"` 选择关卡、`--limit 1` 限制总处理数。`--scope "1-3"` 单独使用时表示第 1 章第 3 个实验。多课堂且没有指定课堂时需要交互选择；`--yes` / `--headless` 要求明确实验范围，多课堂时还需明确课堂，避免后台运行误选第一课堂或全部实验。命令行已显式指定实验范围但未指定 `--steps` 时，处理所选实验内未跳过的关卡。
+
+`--demo` 使用假 AI 并强制不提交；`--dry-run` 使用真实 AI 并禁止编程题与选择题提交。`--headless` 后台运行，不自动打开监控面板。首次登录请用可见模式完成平台验证码及 DeepSeek 登录。默认跳过已完成关卡；交互选择仅作用于本次运行，不改写个人配置里的课堂 ID。
 
 `config.json` 默认随程序放置，换机器时可随程序一起复制。独立浏览器 profile 和日志默认存放于系统用户配置目录下的 `tempo-ai-answer`：
 

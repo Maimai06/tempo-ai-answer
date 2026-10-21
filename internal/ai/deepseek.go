@@ -226,6 +226,32 @@ func (w *Web) ReadLatest(ctx context.Context) (string, error) {
 	e := w.Page.Eval(ctx, js, &text)
 	return strings.TrimSpace(text), e
 }
+
+// pageDiagnostics 只记录页面可见状态与节点数量，不读取或输出回答正文。
+func (w *Web) pageDiagnostics(ctx context.Context) string {
+	var state struct {
+		Visibility  string `json:"visibility"`
+		Hidden      bool   `json:"hidden"`
+		ReadyState  string `json:"readyState"`
+		InputCount  int    `json:"inputCount"`
+		AnswerCount int    `json:"answerCount"`
+		Generating  bool   `json:"generating"`
+		LoginPrompt bool   `json:"loginPrompt"`
+		Captcha     bool   `json:"captcha"`
+		RateLimited bool   `json:"rateLimited"`
+	}
+	args := map[string]any{"inputs": w.Selectors.Input, "answers": w.Selectors.Answer, "busy": w.Selectors.Busy}
+	js := `(a=>{const visible=e=>{const r=e.getBoundingClientRect();return r.width>0&&r.height>0};const body=(document.body?.innerText||'').toLowerCase();const answers=new Set(a.answers.flatMap(s=>[...document.querySelectorAll(s)]));return {visibility:document.visibilityState,hidden:document.hidden,readyState:document.readyState,inputCount:a.inputs.reduce((n,s)=>n+[...document.querySelectorAll(s)].filter(visible).length,0),answerCount:answers.size,generating:a.busy.some(s=>[...document.querySelectorAll(s)].some(visible)),loginPrompt:/立即登录|去登录|密码登录/.test(body),captcha:/验证码|captcha/.test(body),rateLimited:/请求过于频繁|操作过于频繁|too many requests/.test(body)}})(` + jsonArg(args) + `)`
+	if err := w.Page.Eval(ctx, js, &state); err != nil {
+		return "页面状态无法读取"
+	}
+	visibility := "前台"
+	if state.Hidden || state.Visibility != "visible" {
+		visibility = "后台"
+	}
+	return fmt.Sprintf("页面=%s, ready=%s, 输入框=%d, 回答节点=%d, 生成中=%t, 登录提示=%t, 验证码=%t, 限流提示=%t", visibility, state.ReadyState, state.InputCount, state.AnswerCount, state.Generating, state.LoginPrompt, state.Captcha, state.RateLimited)
+}
+
 func (w *Web) messageCount(ctx context.Context) (int, error) {
 	var n int
 	e := w.Page.Eval(ctx, `(sels=>{for(const s of sels){const n=document.querySelectorAll(s).length;if(n)return n}return 0})(`+jsonArg(w.Selectors.Answer)+`)`, &n)
@@ -263,7 +289,7 @@ func (w *Web) wait(ctx context.Context, previous string, count, n int) (string, 
 			if parent.Err() == nil && last != "" && (n == 0 || codemerge.Complete(last, n)) {
 				return last, nil
 			}
-			return "", fmt.Errorf("DeepSeek 回答超时或取消: %w", e)
+			return "", fmt.Errorf("DeepSeek 回答超时或取消: %w；%s", e, w.pageDiagnostics(parent))
 		}
 		text, e := w.ReadLatest(ctx)
 		if e != nil {
@@ -286,7 +312,7 @@ func (w *Web) wait(ctx context.Context, previous string, count, n int) (string, 
 				}
 			}
 		} else if time.Since(start) > 60*time.Second {
-			return "", errors.New("DeepSeek 60 秒未产生新回答")
+			return "", fmt.Errorf("DeepSeek 60 秒未产生新回答；%s", w.pageDiagnostics(parent))
 		}
 	}
 }
@@ -335,7 +361,7 @@ func (w *Web) Ask(ctx context.Context, prompt string, n int) (string, error) {
 		if attempt == 1 {
 			return "", e
 		}
-		w.Sink.Emit(core.Event{Kind: "warn", Text: "未收到完整 AI 回复，重新发送一次"})
+		w.Sink.Emit(core.Event{Kind: "warn", Text: "未收到可用的 DeepSeek 回复，重新发送一次：" + e.Error()})
 	}
 	return "", errors.New("AI 重试耗尽")
 }

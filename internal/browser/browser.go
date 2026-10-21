@@ -12,7 +12,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/chromedp/cdproto/cdp"
 	cdpruntime "github.com/chromedp/cdproto/runtime"
+	"github.com/chromedp/cdproto/target"
 	"github.com/chromedp/chromedp"
 )
 
@@ -94,7 +96,16 @@ func Start(ctx context.Context, profile string, headless bool) (*Session, error)
 	}
 	for _, p := range candidates {
 		opts := append([]chromedp.ExecAllocatorOption{}, chromedp.DefaultExecAllocatorOptions[:]...)
-		opts = append(opts, chromedp.ExecPath(p), chromedp.UserDataDir(profile), chromedp.Flag("headless", headless), chromedp.WindowSize(1440, 950), chromedp.Flag("disable-blink-features", "AutomationControlled"))
+		opts = append(opts,
+			chromedp.ExecPath(p),
+			chromedp.UserDataDir(profile),
+			chromedp.Flag("headless", headless),
+			chromedp.WindowSize(1440, 950),
+			chromedp.Flag("disable-blink-features", "AutomationControlled"),
+			chromedp.Flag("disable-background-timer-throttling", true),
+			chromedp.Flag("disable-renderer-backgrounding", true),
+			chromedp.Flag("disable-backgrounding-occluded-windows", true),
+		)
 		alloc, ac := chromedp.NewExecAllocator(ctx, opts...)
 		tab, tc := chromedp.NewContext(alloc)
 		page := &Page{ctx: tab, cancel: tc}
@@ -128,6 +139,27 @@ func (s *Session) Close() error {
 func (s *Session) NewPage() *Page {
 	ctx, cancel := chromedp.NewContext(s.Root.ctx)
 	return &Page{ctx: ctx, cancel: cancel}
+}
+
+// NewWindowPage 在独立浏览器窗口创建页面，避免监控面板切换标签后暂停 AI 页面的前台生命周期。
+func (s *Session) NewWindowPage(ctx context.Context) (*Page, error) {
+	cdpCtx := chromedp.FromContext(s.Root.ctx)
+	if cdpCtx == nil || cdpCtx.Browser == nil {
+		return nil, fmt.Errorf("浏览器尚未启动")
+	}
+	browserCtx := cdp.WithExecutor(ctx, cdpCtx.Browser)
+	id, err := target.CreateTarget("about:blank").WithNewWindow(true).Do(browserCtx)
+	if err != nil {
+		return nil, fmt.Errorf("创建独立浏览器窗口失败: %w", err)
+	}
+	pageCtx, cancel := chromedp.NewContext(s.Root.ctx, chromedp.WithTargetID(id))
+	page := &Page{ctx: pageCtx, cancel: cancel}
+	if err := page.Run(ctx); err != nil {
+		cancel()
+		_ = target.CloseTarget(id).Do(browserCtx)
+		return nil, fmt.Errorf("连接独立浏览器窗口失败: %w", err)
+	}
+	return page, nil
 }
 
 // Close 释放会话或标签页拥有的资源。

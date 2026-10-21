@@ -243,7 +243,11 @@ func (r *runtimeState) runPlan(ctx context.Context, a *app, plan []coursePlan) e
 	}
 	fmt.Fprintln(a.output(), "监控面板：", panel.URL)
 	if !a.headless && !a.webPanel {
-		if e = session.NewPage().OpenLocal(ctx, panel.URL); e != nil {
+		panelPage, pageErr := session.NewWindowPage(ctx)
+		if pageErr != nil {
+			return pageErr
+		}
+		if e = panelPage.OpenLocal(ctx, panel.URL); e != nil {
 			l.Log.Warn("面板未能自动打开，请访问上述地址")
 		}
 	}
@@ -258,7 +262,14 @@ func (r *runtimeState) runPlan(ctx context.Context, a *app, plan []coursePlan) e
 	} else {
 		web := r.aiWeb
 		if web == nil {
-			web = ai.New(session.NewPage(), time.Duration(cfg.AI.AnswerTimeout)*time.Second, cfg.Run.PerChat, sink)
+			aiPage := session.NewPage()
+			if !a.headless {
+				aiPage, e = session.NewWindowPage(ctx)
+				if e != nil {
+					return e
+				}
+			}
+			web = ai.New(aiPage, time.Duration(cfg.AI.AnswerTimeout)*time.Second, cfg.Run.PerChat, sink)
 			if e = web.Open(ctx); e != nil {
 				return e
 			}

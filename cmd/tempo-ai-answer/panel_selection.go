@@ -219,7 +219,11 @@ func (r *runtimeState) panelRun(ctx context.Context, a *app) error {
 		}
 		fmt.Fprintln(a.output(), "已选择兼容 AI API；本次无需打开或登录 DeepSeek。")
 	} else {
-		web := ai.New(r.session.NewPage(), time.Duration(r.cfg.AI.AnswerTimeout)*time.Second, r.cfg.Run.PerChat, r.sink)
+		aiPage, err := r.session.NewWindowPage(ctx)
+		if err != nil {
+			return err
+		}
+		web := ai.New(aiPage, time.Duration(r.cfg.AI.AnswerTimeout)*time.Second, r.cfg.Run.PerChat, r.sink)
 		if err := web.Open(ctx); err != nil {
 			return err
 		}
@@ -286,7 +290,11 @@ func (r *runtimeState) panelRun(ctx context.Context, a *app) error {
 	r.panelContinue = continueRequested
 	selectURL := r.panel.URL
 	fmt.Fprintln(a.output(), "答题与监控面板：", selectURL)
-	if err := r.session.NewPage().OpenLocal(ctx, selectURL); err != nil {
+	panelPage, err := r.session.NewWindowPage(ctx)
+	if err != nil {
+		return err
+	}
+	if err := panelPage.OpenLocal(ctx, selectURL); err != nil {
 		return fmt.Errorf("无法打开范围选择面板 %s: %w", selectURL, err)
 	}
 	a.webPanel, a.webConfirmed = true, true

@@ -35,7 +35,15 @@ func TestDeepSeekDOMFixture(t *testing.T) {
 	if e = s.Root.Navigate(ctx, ts.URL); e != nil {
 		t.Fatal(e)
 	}
-	web := ai.New(s.Root, 15*time.Second, 3, nil)
+	aiPage, e := s.NewWindowPage(ctx)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer aiPage.Close()
+	if e = aiPage.Navigate(ctx, ts.URL); e != nil {
+		t.Fatal(e)
+	}
+	web := ai.New(aiPage, 15*time.Second, 3, nil)
 	ok, e := web.LoggedIn(ctx)
 	if e != nil || !ok {
 		t.Fatal(ok, e)

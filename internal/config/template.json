@@ -6,7 +6,12 @@
     "classroom_id": ""
   },
   "ai": {
-    "answer_timeout": 180
+    "answer_timeout": 180,
+    "provider": "deepseek_web",
+    "base_url": "https://api.deepseek.com",
+    "model": "deepseek-chat",
+    "api_key": "",
+    "api_key_env": "TEMPO_AI_API_KEY"
   },
   "run": {
     "max_retry": 2,

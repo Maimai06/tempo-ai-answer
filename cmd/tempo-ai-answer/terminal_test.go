@@ -37,7 +37,7 @@ func TestMenuTrialCreatesPortableConfigAndReturns(t *testing.T) {
 	root.SetIn(strings.NewReader("7\n0\n"))
 	output := &bytes.Buffer{}
 	root.SetOut(output)
-	root.SetArgs([]string{"--data-dir", dir})
+	root.SetArgs([]string{"--data-dir", dir, "menu"})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}

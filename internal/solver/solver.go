@@ -34,6 +34,9 @@ func (e *Engine) complete(ctx context.Context, answer string, n int) (string, er
 		if codemerge.Complete(answer, n) {
 			return answer, nil
 		}
+		if provider, ok := e.AI.(core.FinalAnswerProvider); ok && provider.ResponsesAreFinal() {
+			return "", errors.New("AI 回复尚未完整，未提交")
+		}
 		more, err := e.AI.ReadLatest(ctx)
 		if err != nil {
 			return "", err

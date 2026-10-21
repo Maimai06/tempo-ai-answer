@@ -1,4 +1,4 @@
-// tempo-ai-answer 是纯 Go CLI，面板与配置模板内嵌，无生产 Python 依赖。
+// tempo-ai-answer 是纯 Go 程序，交互面板与配置模板内嵌，无生产 Python 依赖。
 package main
 
 import (
@@ -35,6 +35,7 @@ type app struct {
 	headless, demo, dry, yes, local   bool
 	inMenu                            bool
 	includePassed                     bool
+	webPanel, webConfirmed            bool
 }
 
 func main() {
@@ -54,7 +55,7 @@ func command() *cobra.Command {
 	a := &app{reader: bufio.NewReader(os.Stdin)}
 	root := &cobra.Command{Use: "tempo-ai-answer", Short: "Tempo 实训助手 · Go 跨平台版", Version: version + " (" + commit + ")", SilenceUsage: true, SilenceErrors: true, RunE: func(cmd *cobra.Command, _ []string) error {
 		a.reader, a.writer = bufio.NewReader(cmd.InOrStdin()), cmd.OutOrStdout()
-		return a.menu(cmd)
+		return a.execute(cmd.Context(), "panel")
 	}}
 	root.PersistentFlags().StringVar(&a.dataDir, "data-dir", "", "profile 和日志目录；显式指定且未传 --config 时也从此处读取配置")
 	root.PersistentFlags().StringVar(&a.configPath, "config", "", "配置文件路径（默认程序同目录的 config.json），兼容 v1 配置")
@@ -63,6 +64,10 @@ func command() *cobra.Command {
 		n := name
 		root.AddCommand(&cobra.Command{Use: n, Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error { return a.execute(cmd.Context(), n) }})
 	}
+	root.AddCommand(&cobra.Command{Use: "menu", Short: "打开终端交互菜单", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+		a.reader, a.writer = bufio.NewReader(cmd.InOrStdin()), cmd.OutOrStdout()
+		return a.menu(cmd)
+	}})
 	check := &cobra.Command{Use: "check", Short: "本地检查；不加 --local 时另检查远端登录", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
 		if e := a.localCheck(); e != nil {
 			return e
@@ -170,7 +175,11 @@ func (a *app) execute(ctx context.Context, name string) (runErr error) {
 		cfg.Run.SkipPassed = false
 	}
 	fmt.Fprintf(a.output(), "[就绪] 配置文件：%s\n", a.configPath)
-	l, e := logger.OpenWithConsole(filepath.Join(a.dataDir, "logs"), a.output(), cfg.Platform.Password, cfg.Platform.Username, os.Getenv("GITHUB_TOKEN"))
+	secrets := []string{cfg.Platform.Password, cfg.Platform.Username, cfg.AI.APIKey, os.Getenv("GITHUB_TOKEN")}
+	if cfg.AI.APIKeyEnv != "" {
+		secrets = append(secrets, os.Getenv(cfg.AI.APIKeyEnv))
+	}
+	l, e := logger.OpenWithConsole(filepath.Join(a.dataDir, "logs"), a.output(), secrets...)
 	if e != nil {
 		return e
 	}
@@ -196,6 +205,9 @@ func (a *app) execute(ctx context.Context, name string) (runErr error) {
 		}
 		panel.Consume(e)
 	})
+	if name == "ai-test" && cfg.AI.Provider == "openai_compatible" {
+		return (&runtimeState{cfg: cfg, log: l, panel: panel, sink: sink}).aiTest(ctx)
+	}
 	session, e := browser.Start(context.WithoutCancel(ctx), filepath.Join(a.dataDir, "profile"), name == "classrooms" || name == "list" || name == "check" || name == "run" && a.headless)
 	if e != nil {
 		return e
@@ -224,6 +236,9 @@ func (a *app) execute(ctx context.Context, name string) (runErr error) {
 	}
 	if name == "run" {
 		fmt.Fprintln(a.output(), "\n第 1 步 · 选择课堂")
+	}
+	if name == "panel" {
+		return r.panelRun(ctx, a)
 	}
 	classroom, e := a.selectClassroom(ctx, plat, cfg.Platform.ClassroomID)
 	if errors.Is(e, errSelectionCanceled) {

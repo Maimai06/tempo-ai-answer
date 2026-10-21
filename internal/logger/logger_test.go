@@ -18,7 +18,7 @@ func TestSecretsRedacted(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	l.Consume(core.Event{Kind: "log", Text: "private-user private-pass token=abc123 cookie:secret"})
+	l.Consume(core.Event{Kind: "log", Text: "private-user private-pass token=abc123 cookie:secret secret=hidden-secret username=hidden-user"})
 	if e = l.Close(); e != nil {
 		t.Fatal(e)
 	}
@@ -26,7 +26,7 @@ func TestSecretsRedacted(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	for _, s := range []string{"private-pass", "private-user", "abc123", "secret"} {
+	for _, s := range []string{"private-pass", "private-user", "abc123", "hidden-secret", "hidden-user"} {
 		if strings.Contains(string(b), s) {
 			t.Fatal("secret leaked")
 		}
@@ -46,6 +46,7 @@ func TestReadableConsoleKeepsRedactedDiagnosticFile(t *testing.T) {
 	}
 	wg.Wait()
 	l.RecordError(errors.New("strconv.ParseInt private-pass token=hidden-token"))
+	l.RecordError(detailedTestError{})
 	if err = l.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +57,7 @@ func TestReadableConsoleKeepsRedactedDiagnosticFile(t *testing.T) {
 	if !strings.Contains(console.String(), "[提示] 正在登录") || strings.Contains(console.String(), "time=") || strings.Contains(console.String(), "strconv.ParseInt") {
 		t.Fatal(console.String())
 	}
-	if !strings.Contains(string(b), "time=") || !strings.Contains(string(b), "strconv.ParseInt") {
+	if !strings.Contains(string(b), "time=") || !strings.Contains(string(b), "strconv.ParseInt") || !strings.Contains(string(b), "平台拒绝原因") {
 		t.Fatal("missing file diagnostics")
 	}
 	for _, text := range []string{console.String(), string(b)} {
@@ -64,4 +65,11 @@ func TestReadableConsoleKeepsRedactedDiagnosticFile(t *testing.T) {
 			t.Fatal("secret leaked")
 		}
 	}
+}
+
+type detailedTestError struct{}
+
+func (detailedTestError) Error() string { return "平台请求失败" }
+func (detailedTestError) LogDetail() string {
+	return "平台拒绝原因 private-pass token=hidden-token"
 }

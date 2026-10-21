@@ -35,6 +35,10 @@ type fakeAI struct {
 	latest  string
 }
 
+type finalFakeAI struct{ *fakeAI }
+
+func (finalFakeAI) ResponsesAreFinal() bool { return true }
+
 func (f *fakeAI) BeginQuestion(context.Context) (int, error) { return 1, nil }
 func (f *fakeAI) Ask(_ context.Context, p string, _ int) (string, error) {
 	f.prompts = append(f.prompts, p)
@@ -71,6 +75,16 @@ func TestRetryOriginalSnapshot(t *testing.T) {
 		t.Fatal(p)
 	}
 }
+
+func TestFinalAIResponseDoesNotWaitForStreaming(t *testing.T) {
+	provider := finalFakeAI{fakeAI: &fakeAI{err: errors.New("ReadLatest should not be called")}}
+	engine := Engine{AI: provider}
+	_, err := engine.complete(context.Background(), "class A {", 1)
+	if err == nil || err.Error() != "AI 回复尚未完整，未提交" {
+		t.Fatalf("incomplete final response error = %v", err)
+	}
+}
+
 func TestNoWritesInEveryDryMode(t *testing.T) {
 	for _, step := range []core.Step{codeStep(), choiceStep()} {
 		for _, mode := range []struct{ dry, demo bool }{{true, false}, {false, true}, {true, true}} {

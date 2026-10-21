@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -21,18 +22,33 @@ import (
 
 // runtimeState 集中持有本次命令的依赖，不使用全局配置。
 type runtimeState struct {
-	cfg       config.Config
-	log       *logger.Logger
-	panel     *dashboard.Server
-	session   *browser.Session
-	plat      *platform.Client
-	sink      core.Sink
-	me        core.User
-	classroom string
+	cfg           config.Config
+	log           *logger.Logger
+	panel         *dashboard.Server
+	session       *browser.Session
+	plat          *platform.Client
+	sink          core.Sink
+	aiWeb         *ai.Web
+	panelExit     <-chan struct{}
+	panelContinue <-chan struct{}
+	me            core.User
+	classroom     string
 }
 
 func (r *runtimeState) aiTest(ctx context.Context) error {
 	cfg, session, sink := r.cfg, r.session, r.sink
+	if cfg.AI.Provider == "openai_compatible" {
+		provider, err := r.newAPIProvider()
+		if err != nil {
+			return err
+		}
+		answer, err := provider.Ask(ctx, "请用 Java 输出 Hello World，只输出一个 ```java 代码块，不要解释。", 1)
+		if err != nil {
+			return err
+		}
+		fmt.Println(answer)
+		return nil
+	}
 	var e error
 	web := ai.New(session.NewPage(), time.Duration(cfg.AI.AnswerTimeout)*time.Second, cfg.Run.PerChat, sink)
 	if e = web.Open(ctx); e != nil {
@@ -54,6 +70,13 @@ func (r *runtimeState) aiTest(ctx context.Context) error {
 }
 func (r *runtimeState) loginAI(ctx context.Context, confirm func(context.Context) error) error {
 	cfg, session, sink := r.cfg, r.session, r.sink
+	if cfg.AI.Provider == "openai_compatible" {
+		if _, err := r.newAPIProvider(); err != nil {
+			return err
+		}
+		fmt.Fprintln(os.Stdout, "当前使用兼容 AI API，已读取本地配置；无需登录 DeepSeek 网页。可运行 ai-test 验证接口。")
+		return nil
+	}
 	var e error
 	web := ai.New(session.NewPage(), time.Duration(cfg.AI.AnswerTimeout)*time.Second, cfg.Run.PerChat, sink)
 	if e = web.Open(ctx); e != nil {
@@ -73,6 +96,17 @@ func (r *runtimeState) loginAI(ctx context.Context, confirm func(context.Context
 	fmt.Println("[OK] 登录态已保存在本工具独立 profile")
 	return nil
 }
+
+func (r *runtimeState) newAPIProvider() (*ai.Compatible, error) {
+	key := r.cfg.AI.APIKey
+	if name := strings.TrimSpace(r.cfg.AI.APIKeyEnv); name != "" {
+		if value := os.Getenv(name); strings.TrimSpace(value) != "" {
+			key = value
+		}
+	}
+	return ai.NewCompatible(r.cfg.AI.BaseURL, r.cfg.AI.Model, key, time.Duration(r.cfg.AI.AnswerTimeout)*time.Second, r.cfg.Run.PerChat, r.sink)
+}
+
 func (r *runtimeState) list(ctx context.Context) error {
 	plat := r.plat
 	for _, kind := range []string{"practice", "training", "combat"} {
@@ -106,6 +140,13 @@ func (r *runtimeState) check(ctx context.Context) error {
 		return e
 	}
 	fmt.Printf("[OK] 课堂：%s，实验数：%d\n", plat.ClassroomID, len(courses))
+	if cfg.AI.Provider == "openai_compatible" {
+		if _, e := r.newAPIProvider(); e != nil {
+			return e
+		}
+		fmt.Printf("[OK] AI API 配置：%s（模型 %s；运行 ai-test 可发送测试请求）\n", cfg.AI.BaseURL, cfg.AI.Model)
+		return nil
+	}
 	web := ai.New(session.NewPage(), time.Duration(cfg.AI.AnswerTimeout)*time.Second, cfg.Run.PerChat, sink)
 	if e = web.Open(ctx); e != nil {
 		return e
@@ -132,7 +173,7 @@ func (r *runtimeState) classrooms(ctx context.Context) error {
 	return nil
 }
 func (r *runtimeState) run(ctx context.Context, a *app, selection scope.Scope, pick []int) error {
-	cfg, session, plat, me, panel, sink, l := r.cfg, r.session, r.plat, r.me, r.panel, r.sink, r.log
+	cfg, plat := r.cfg, r.plat
 	courses, e := plat.ListCourses(ctx, "practice")
 	if e != nil {
 		return e
@@ -141,28 +182,37 @@ func (r *runtimeState) run(ctx context.Context, a *app, selection scope.Scope, p
 	if e != nil {
 		return e
 	}
-	plan, e := a.selectStepPlan(ctx, plat, courses, pick, cfg.Run.SkipPassed)
+	plan, e := a.selectStepPlan(ctx, plat, courses, pick, cfg.Run.SkipPassed && !a.includePassed)
 	if e != nil {
 		return e
 	}
+	return r.runPlan(ctx, a, plan)
+}
+
+func (r *runtimeState) runPlan(ctx context.Context, a *app, plan []coursePlan) error {
+	cfg, session, plat, me, panel, sink, l := r.cfg, r.session, r.plat, r.me, r.panel, r.sink, r.log
+	skipPassed := cfg.Run.SkipPassed && !a.includePassed
+	var e error
 	a.showRunPlan(r.classroom, plan)
-	if !a.yes {
+	if !a.yes && !a.webConfirmed {
 		if e = a.confirmRun(ctx); e != nil {
 			return e
 		}
 	}
-	if e = panel.Start(8877); e != nil {
-		return e
-	}
-	defer func() {
-		closeCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer cancel()
-		if e := panel.Close(closeCtx); e != nil {
-			l.Log.Warn("面板关闭失败")
+	if panel.URL == "" {
+		if e = panel.Start(8877); e != nil {
+			return e
 		}
-	}()
+		defer func() {
+			closeCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			if e := panel.Close(closeCtx); e != nil {
+				l.Log.Warn("面板关闭失败")
+			}
+		}()
+	}
 	fmt.Fprintln(a.output(), "监控面板：", panel.URL)
-	if !a.headless {
+	if !a.headless && !a.webPanel {
 		if e = session.NewPage().OpenLocal(ctx, panel.URL); e != nil {
 			l.Log.Warn("面板未能自动打开，请访问上述地址")
 		}
@@ -170,35 +220,45 @@ func (r *runtimeState) run(ctx context.Context, a *app, selection scope.Scope, p
 	var provider core.AIProvider
 	if a.demo {
 		provider = &ai.Demo{Sink: sink}
-	} else {
-		web := ai.New(session.NewPage(), time.Duration(cfg.AI.AnswerTimeout)*time.Second, cfg.Run.PerChat, sink)
-		if e = web.Open(ctx); e != nil {
-			return e
-		}
-		ok, e := web.LoggedIn(ctx)
+	} else if cfg.AI.Provider == "openai_compatible" {
+		provider, e = r.newAPIProvider()
 		if e != nil {
 			return e
 		}
-		if !ok {
-			if a.headless {
-				return errors.New("DeepSeek 尚未登录，请先运行 login")
-			}
-			fmt.Println("请在浏览器完成 DeepSeek 登录，然后按回车继续。")
-			if e = a.enter(ctx); e != nil {
+	} else {
+		web := r.aiWeb
+		if web == nil {
+			web = ai.New(session.NewPage(), time.Duration(cfg.AI.AnswerTimeout)*time.Second, cfg.Run.PerChat, sink)
+			if e = web.Open(ctx); e != nil {
 				return e
 			}
-			ok, e = web.LoggedIn(ctx)
-			if e != nil {
-				return e
+			ok, err := web.LoggedIn(ctx)
+			if err != nil {
+				return err
 			}
 			if !ok {
-				return errors.New("未检测到 DeepSeek 登录态")
+				if a.headless {
+					return errors.New("DeepSeek 尚未登录，请先运行 login")
+				}
+				fmt.Println("请在浏览器完成 DeepSeek 登录，然后按回车继续。")
+				if e = a.enter(ctx); e != nil {
+					return e
+				}
+				ok, e = web.LoggedIn(ctx)
+				if e != nil {
+					return e
+				}
+				if !ok {
+					return errors.New("未检测到 DeepSeek 登录态")
+				}
 			}
 		}
-		if e = web.Capture(ctx); e != nil {
-			sink.Emit(core.Event{Kind: "warn", Text: "获取历史对话失败；本次禁用删除清理"})
+		if !web.Before.Captured {
+			if e = web.Capture(ctx); e != nil {
+				sink.Emit(core.Event{Kind: "warn", Text: "读取历史对话清单失败；退出时仅清理已确认由本程序创建的会话"})
+			}
 		}
-		if cfg.Run.CleanupChat {
+		if cfg.Run.CleanupChat && !a.webPanel {
 			defer func() {
 				cleanupCtx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 				defer cancel()
@@ -224,7 +284,7 @@ func (r *runtimeState) run(ctx context.Context, a *app, selection scope.Scope, p
 			continue
 		}
 		for _, s := range steps {
-			if entry.keep(s, cfg.Run.SkipPassed) {
+			if entry.keep(s, skipPassed) {
 				total++
 			}
 		}
@@ -250,7 +310,7 @@ func (r *runtimeState) run(ctx context.Context, a *app, selection scope.Scope, p
 		sort.SliceStable(steps, func(i, j int) bool { return steps[i].Sequence < steps[j].Sequence })
 		practice := strings.TrimRight(cfg.Platform.BaseURL, "/") + "/#/practicum/practiceDetail?id=" + c.Identifier() + "&classroomId=" + plat.ClassroomID + "&tenancyId=" + plat.ClassroomID
 		for _, s := range steps {
-			if !entry.keep(s, cfg.Run.SkipPassed) {
+			if !entry.keep(s, skipPassed) {
 				continue
 			}
 			if a.limit > 0 && index >= a.limit {
@@ -275,5 +335,16 @@ func (r *runtimeState) run(ctx context.Context, a *app, selection scope.Scope, p
 		}
 	}
 	a.showRunSummary(index, passed)
+	if a.webPanel && r.panelExit != nil {
+		sink.Emit(core.Event{Kind: "finished"})
+		fmt.Fprintln(a.output(), "本次范围已完成。可在监控面板继续选择范围，或退出程序。")
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-r.panelContinue:
+			return errPanelContinue
+		case <-r.panelExit:
+		}
+	}
 	return nil
 }

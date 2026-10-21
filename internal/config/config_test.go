@@ -89,3 +89,27 @@ func TestInvalidLocalEnvironment(t *testing.T) {
 		t.Fatal("missing user config dir accepted")
 	}
 }
+
+func TestAPIProviderConfig(t *testing.T) {
+	t.Setenv("TEMPO_AI_API_KEY", "")
+	c := good()
+	c.AI.Provider = "openai_compatible"
+	c.AI.BaseURL = "https://api.example.invalid/v1"
+	c.AI.Model = "fixture-model"
+	if err := c.Validate(); err == nil {
+		t.Fatal("API provider accepted missing key")
+	}
+	t.Setenv("TEMPO_AI_API_KEY", "secret-fixture")
+	if err := c.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	c.AI.APIKey = "config-secret"
+	t.Setenv("TEMPO_AI_API_KEY", "")
+	if err := c.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	c.AI.Provider = "unknown"
+	if err := c.Validate(); err == nil {
+		t.Fatal("unknown provider accepted")
+	}
+}

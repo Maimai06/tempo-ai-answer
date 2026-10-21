@@ -88,6 +88,19 @@ func TestFailuresAndClassroom(t *testing.T) {
 	}
 }
 
+func TestAPIErrorKeepsPlatformMessageForPrivateLogs(t *testing.T) {
+	p := &fakePage{responses: []response{{Status: 200, JSON: &envelope{Success: false, Message: "实践环境尚未启动"}}}}
+	c := Client{Page: p, BaseURL: "https://example.invalid/"}
+	err := c.API(context.Background(), "/fixture", "GET", nil, nil)
+	var detail interface{ LogDetail() string }
+	if !errors.As(err, &detail) {
+		t.Fatalf("expected detailed API error, got %v", err)
+	}
+	if strings.Contains(err.Error(), "实践环境尚未启动") || !strings.Contains(detail.LogDetail(), "实践环境尚未启动") {
+		t.Fatalf("platform message should be private-log-only: public=%q detail=%q", err, detail.LogDetail())
+	}
+}
+
 func TestCoursesWithNullableIDs(t *testing.T) {
 	for _, raw := range []string{
 		`[{"id":"chapter","courseId":null,"coursesId":null,"sort":1,"lastList":[{"id":null,"courseId":null,"coursesId":123,"sort":2}]}]`,

@@ -39,6 +39,28 @@ type envelope struct {
 	Message string          `json:"message"`
 }
 
+type apiFailure struct {
+	path    string
+	status  int
+	message string
+}
+
+func (e *apiFailure) Error() string {
+	return fmt.Sprintf("平台接口 %s 未成功（HTTP %d），请检查会话或实践环境", e.path, e.status)
+}
+
+// LogDetail 仅供私有日志记录平台业务错误；Message 不进入终端提示。
+func (e *apiFailure) LogDetail() string {
+	message := strings.Join(strings.Fields(e.message), " ")
+	if runes := []rune(message); len(runes) > 240 {
+		message = string(runes[:240]) + "…"
+	}
+	if message == "" {
+		return e.Error()
+	}
+	return e.Error() + "；平台消息：" + message
+}
+
 func (c *Client) fetch(ctx context.Context, path, method string, data url.Values) (response, error) {
 	u, e := url.Parse(c.BaseURL)
 	if e != nil {
@@ -130,7 +152,11 @@ func (c *Client) API(ctx context.Context, path, method string, data url.Values, 
 			continue
 		}
 		if r.Status != 200 || r.JSON == nil || !r.JSON.Success {
-			return fmt.Errorf("平台接口 %s 未成功（HTTP %d），请检查会话或实践环境", path, r.Status)
+			failure := &apiFailure{path: path, status: r.Status}
+			if r.JSON != nil {
+				failure.message = r.JSON.Message
+			}
+			return failure
 		}
 		if out == nil {
 			return nil

@@ -33,6 +33,37 @@ func TestCleanupCaptureBoundary(t *testing.T) {
 		t.Fatal("delete error ignored")
 	}
 }
+
+func TestCleanupOwnedDoesNotDeleteUnrelatedNewChats(t *testing.T) {
+	owned := map[string]bool{"/a/chat/s/owned": true}
+	removed := map[string]bool{}
+	n, err := CleanupOwned(context.Background(), owned,
+		func(context.Context) (map[string]bool, error) {
+			return map[string]bool{
+				"/a/chat/s/old":       true,
+				"/a/chat/s/owned":     true,
+				"/a/chat/s/unrelated": true,
+			}, nil
+		},
+		func(_ context.Context, id string) error { removed[id] = true; return nil },
+	)
+	if err != nil || n != 1 || len(removed) != 1 || !removed["/a/chat/s/owned"] {
+		t.Fatalf("removed = %v, count = %d, error = %v", removed, n, err)
+	}
+	if removed["/a/chat/s/old"] || removed["/a/chat/s/unrelated"] {
+		t.Fatalf("deleted chats not owned by this run: %v", removed)
+	}
+}
+
+func TestCurrentChatID(t *testing.T) {
+	if got := currentChatID("https://chat.example/a/chat/s/session-1?from=home"); got != "/a/chat/s/session-1" {
+		t.Fatalf("current chat ID = %q", got)
+	}
+	if got := currentChatID("https://chat.example/"); got != "" {
+		t.Fatalf("home page chat ID = %q", got)
+	}
+}
+
 func TestDemoFormats(t *testing.T) {
 	d := &Demo{}
 	ctx := context.Background()

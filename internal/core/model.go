@@ -213,6 +213,11 @@ type AIProvider interface {
 	ReadLatest(context.Context) (string, error)
 }
 
+// FinalAnswerProvider 标识 Ask 返回的是完整响应，不会继续通过 ReadLatest 流式增长。
+type FinalAnswerProvider interface {
+	ResponsesAreFinal() bool
+}
+
 // Event 使用封闭的类型化字段，通过 Kind 区分状态变化。
 type Event struct {
 	Kind                                    string

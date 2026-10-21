@@ -28,7 +28,12 @@ type Config struct {
 		ClassroomID string `json:"classroom_id"`
 	} `json:"platform"`
 	AI struct {
-		AnswerTimeout int `json:"answer_timeout"`
+		AnswerTimeout int    `json:"answer_timeout"`
+		Provider      string `json:"provider"`
+		BaseURL       string `json:"base_url"`
+		Model         string `json:"model"`
+		APIKey        string `json:"api_key"`
+		APIKeyEnv     string `json:"api_key_env"`
 	} `json:"ai"`
 	Run struct {
 		MaxRetry    int  `json:"max_retry"`
@@ -43,6 +48,8 @@ type Config struct {
 func Defaults() Config {
 	var c Config
 	c.AI.AnswerTimeout = 180
+	c.AI.Provider = "deepseek_web"
+	c.AI.APIKeyEnv = "TEMPO_AI_API_KEY"
 	c.Run.MaxRetry = 2
 	c.Run.Delay = 3
 	c.Run.SkipPassed = true
@@ -99,6 +106,25 @@ func (c Config) Validate() error {
 	}
 	if c.Platform.Password == "" || strings.HasPrefix(c.Platform.Password, "YOUR_") {
 		return errors.New("请填写 platform.password")
+	}
+	switch c.AI.Provider {
+	case "deepseek_web":
+	case "openai_compatible":
+		endpoint, err := url.Parse(c.AI.BaseURL)
+		if err != nil || endpoint.Host == "" || (endpoint.Scheme != "https" && endpoint.Scheme != "http") || endpoint.User != nil || endpoint.RawQuery != "" || endpoint.Fragment != "" {
+			return errors.New("ai.base_url 请填写有效的 HTTP(S) API 地址")
+		}
+		if endpoint.Scheme == "http" && endpoint.Hostname() != "localhost" && endpoint.Hostname() != "127.0.0.1" && endpoint.Hostname() != "::1" {
+			return errors.New("ai.base_url 使用 HTTP 时仅允许本机地址；远程服务请使用 HTTPS")
+		}
+		if strings.TrimSpace(c.AI.Model) == "" || strings.HasPrefix(c.AI.Model, "YOUR_") {
+			return errors.New("请填写 ai.model")
+		}
+		if strings.TrimSpace(c.AI.APIKey) == "" && (strings.TrimSpace(c.AI.APIKeyEnv) == "" || strings.TrimSpace(os.Getenv(c.AI.APIKeyEnv)) == "") {
+			return errors.New("请在 ai.api_key 或 ai.api_key_env 指定的环境变量中填写 API 密钥")
+		}
+	default:
+		return errors.New("ai.provider 仅支持 deepseek_web 或 openai_compatible")
 	}
 	if c.AI.AnswerTimeout < 1 || c.AI.AnswerTimeout > 3600 {
 		return errors.New("answer_timeout 范围为 1..3600 秒")

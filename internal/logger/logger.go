@@ -3,6 +3,7 @@ package logger
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -15,7 +16,7 @@ import (
 	"github.com/Maimai06/tempo-ai-answer/internal/core"
 )
 
-var sensitive = regexp.MustCompile(`(?i)(token|password|authorization|cookie)([=: ]+)[^\s,;]+`)
+var sensitive = regexp.MustCompile(`(?i)(token|password|passwd|authorization|cookie|secret|username|credential)([=: ]+)[^\s,;]+`)
 
 // Logger 同时写控制台与私有日志文件，保留集中脱敏规则。
 type Logger struct {
@@ -89,7 +90,17 @@ func (h *consoleHandler) WithGroup(name string) slog.Handler {
 }
 
 // RecordError 仅将底层错误写入文件，终端由调用方给出可操作的提示。
-func (l *Logger) RecordError(err error) { l.fileLog.Error(err.Error()) }
+func (l *Logger) RecordError(err error) {
+	if err == nil {
+		return
+	}
+	var detailed interface{ LogDetail() string }
+	if errors.As(err, &detailed) {
+		l.fileLog.Error(detailed.LogDetail())
+		return
+	}
+	l.fileLog.Error(err.Error())
+}
 
 // Redact 遮盖已知敏感值和常见认证键值。
 func (l *Logger) Redact(s string) string {

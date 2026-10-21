@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -35,6 +36,7 @@ type Web struct {
 	PerChat   int
 	Sink      core.Sink
 	Before    ChatSnapshot
+	Created   map[string]bool
 	count     int
 }
 
@@ -69,7 +71,9 @@ func (w *Web) ListChats(ctx context.Context) (map[string]bool, error) {
 	}
 	out := map[string]bool{}
 	for _, id := range ids {
-		out[id] = true
+		if normalized := currentChatID(id); normalized != "" {
+			out[normalized] = true
+		}
 	}
 	return out, nil
 }
@@ -82,6 +86,33 @@ func (w *Web) Capture(ctx context.Context) error {
 		return e
 	}
 	w.Before = ChatSnapshot{Captured: true, IDs: ids}
+	if w.Created == nil {
+		w.Created = map[string]bool{}
+	}
+	return nil
+}
+
+func currentChatID(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil || !strings.Contains(u.Path, "/a/chat/s/") {
+		return ""
+	}
+	return u.EscapedPath()
+}
+
+func (w *Web) trackCurrentChat(ctx context.Context, previous string) error {
+	raw, err := w.Page.URL(ctx)
+	if err != nil {
+		return err
+	}
+	id := currentChatID(raw)
+	if id == "" || id == previous || w.Before.IDs[id] {
+		return nil
+	}
+	if w.Created == nil {
+		w.Created = map[string]bool{}
+	}
+	w.Created[id] = true
 	return nil
 }
 
@@ -106,9 +137,31 @@ func CleanupSince(ctx context.Context, before ChatSnapshot, list func(context.Co
 	return n, nil
 }
 
+// CleanupOwned 只删除本次 provider 确认创建的会话。
+func CleanupOwned(ctx context.Context, owned map[string]bool, list func(context.Context) (map[string]bool, error), remove func(context.Context, string) error) (int, error) {
+	if len(owned) == 0 {
+		return 0, nil
+	}
+	now, err := list(ctx)
+	if err != nil {
+		return 0, err
+	}
+	removed := 0
+	for id := range owned {
+		if !now[id] {
+			continue
+		}
+		if err := remove(ctx, id); err != nil {
+			return removed, err
+		}
+		removed++
+	}
+	return removed, nil
+}
+
 // Cleanup 只清理成功捕获历史之后的新对话。
 func (w *Web) Cleanup(ctx context.Context) (int, error) {
-	return CleanupSince(ctx, w.Before, w.ListChats, w.remove)
+	return CleanupOwned(ctx, w.Created, w.ListChats, w.remove)
 }
 func (w *Web) remove(ctx context.Context, id string) error {
 	var ok bool
@@ -150,14 +203,11 @@ func (w *Web) BeginQuestion(ctx context.Context) (int, error) {
 		if e != nil {
 			return 0, e
 		}
-		if w.Before.Captured {
-			if i := strings.Index(u, "/a/chat/s/"); i >= 0 {
-				href := u[i:]
-				if !w.Before.IDs[href] {
-					if e = w.remove(ctx, href); e != nil {
-						w.Sink.Emit(core.Event{Kind: "warn", Text: e.Error()})
-					}
-				}
+		if href := currentChatID(u); href != "" && w.Created[href] {
+			if e = w.remove(ctx, href); e != nil {
+				w.Sink.Emit(core.Event{Kind: "warn", Text: e.Error()})
+			} else {
+				delete(w.Created, href)
 			}
 		}
 		if e = w.Open(ctx); e != nil {
@@ -259,6 +309,11 @@ func (w *Web) Ask(ctx context.Context, prompt string, n int) (string, error) {
 	if e != nil {
 		return "", e
 	}
+	pageURL, e := w.Page.URL(ctx)
+	if e != nil {
+		return "", e
+	}
+	previousChat := currentChatID(pageURL)
 	count, e := w.messageCount(ctx)
 	if e != nil {
 		return "", e
@@ -269,6 +324,9 @@ func (w *Web) Ask(ctx context.Context, prompt string, n int) (string, error) {
 		}
 		text, e := w.wait(ctx, previous, count, n)
 		if e == nil {
+			if trackErr := w.trackCurrentChat(ctx, previousChat); trackErr != nil {
+				w.Sink.Emit(core.Event{Kind: "warn", Text: "记录本次 DeepSeek 会话失败，退出时可能无法清理"})
+			}
 			return text, nil
 		}
 		if ctx.Err() != nil {

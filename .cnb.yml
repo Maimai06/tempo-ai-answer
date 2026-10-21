@@ -42,7 +42,6 @@ main:
           script: bash scripts/check.sh
         - name: 四平台交叉构建
           script: go run ./tools/build
-        - *save-artifacts
 $:
   push:
     - *verified-build

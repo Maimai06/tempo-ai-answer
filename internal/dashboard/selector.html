@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="selection-key" content="__SELECTION_KEY__">
+<title>Tempo AI 答题范围</title>
+<style>
+  :root { color-scheme: light; font: 14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif; color: #1d3033; background: #f3f7f6; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-width: 320px; min-height: 100vh; color: #1d3033; }
+  button,input,select { font: inherit; }
+  button { min-height: 36px; padding: 7px 12px; border: 1px solid #bacac7; border-radius: 5px; background: #fff; color: #203639; cursor: pointer; transition: background .15s,border-color .15s; }
+  button:hover:not(:disabled) { background: #edf4f2; border-color: #78918b; }
+  button:disabled { cursor: not-allowed; opacity: .48; }
+  .topbar { position: sticky; top: 0; z-index: 3; min-height: 64px; display: flex; align-items: center; gap: 24px; padding: 9px max(22px,calc((100vw - 1480px)/2)); color: #f4fbf9; background: #153b3d; border-bottom: 1px solid #285352; }
+  .brand { display: flex; align-items: center; gap: 10px; min-width: 190px; font-size: 15px; font-weight: 650; }
+  .brand-mark { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 6px; color: #153b3d; background: #a8d9c5; font-size: 12px; font-weight: 750; }
+  .app-tabs { display: flex; align-items: center; gap: 4px; }
+  .app-tab { min-height: 36px; padding: 7px 12px; border-color: transparent; color: #c2d8d3; background: transparent; }
+  .app-tab:hover:not(:disabled) { color: #fff; background: #244b4b; border-color: #315d5b; }
+  .app-tab.active { color: #fff; background: #285554; border-color: #477773; }
+  .tab-state { margin-left: 5px; color: #a9d7c5; font-size: 11px; }
+  .login-state { display: flex; align-items: center; gap: 12px; margin-left: auto; color: #c8dad7; font-size: 12px; white-space: nowrap; }
+  .login-item { display: inline-flex; align-items: center; gap: 6px; }
+  .login-dot { width: 7px; height: 7px; border-radius: 50%; background: #76c99a; }
+  main { width: min(1480px,100%); margin: 0 auto; padding: 22px 22px 118px; }
+  [hidden] { display: none !important; }
+  .steps-head { display: flex; align-items: center; gap: 10px; margin: 0 0 20px; color: #627572; }
+  .steps-head span { display: flex; align-items: center; gap: 8px; }
+  .step-no { width: 23px; height: 23px; display: inline-grid; place-items: center; border: 1px solid #aabbb7; border-radius: 50%; color: #405d57; background: #fff; font-size: 12px; }
+  .steps-head .step-divider { width: 26px; height: 1px; background: #cbd8d5; }
+  .layout { display: grid; grid-template-columns: minmax(205px,.78fr) minmax(280px,1.08fr) minmax(360px,1.44fr); gap: 22px; align-items: start; }
+  .pane { min-width: 0; }
+  .pane + .pane { padding-left: 20px; border-left: 1px solid #d7e1de; }
+  .pane-title { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 0 0 10px; border-bottom: 1px solid #d3dfdc; }
+  .pane-title h1,.pane-title h2 { margin: 0; font-size: 16px; line-height: 1.35; color: #20393a; }
+  .pane-title small,.muted { color: #687a77; }
+  .class-list,.course-list,.selected-list { display: flex; flex-direction: column; gap: 2px; padding-top: 10px; }
+  .choice-row { display: flex; align-items: flex-start; gap: 10px; min-height: 43px; padding: 9px 8px; border-bottom: 1px solid #e2eae7; cursor: pointer; }
+  .choice-row:hover { background: #edf5f2; }
+  .choice-row:has(input:checked) { background: #eaf4ef; }
+  .choice-row input { flex: none; width: 16px; height: 16px; margin: 2px 0 0; accent-color: #14765f; }
+  .choice-main { min-width: 0; flex: 1; }
+  .choice-name { display: block; color: #233a3b; overflow-wrap: anywhere; }
+  .choice-meta { display: block; margin-top: 2px; color: #6b7b79; font-size: 12px; }
+  .tools { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin: 10px 0 4px; }
+  .tools button { min-height: 31px; padding: 4px 9px; font-size: 12px; }
+  .tools input[type=search] { flex: 1; min-width: 120px; height: 34px; padding: 5px 9px; border: 1px solid #c3d1ce; border-radius: 4px; background: #fff; }
+  .tools input[type=search]:focus { outline: 2px solid #8bbfae; outline-offset: 1px; }
+  .range-note { margin: 8px 0 0; color: #667875; font-size: 12px; }
+  .empty { padding: 18px 8px; color: #738480; }
+  .course-group { margin: 0 0 14px; padding: 0 0 12px; border-bottom: 1px solid #d7e1de; }
+  .course-group-head { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 7px; }
+  .course-group-head h3 { flex: 1; min-width: 0; margin: 0; font-size: 14px; font-weight: 620; overflow-wrap: anywhere; }
+  .course-group-head h3 small { display: block; margin-top: 2px; color: #6b7b79; font-weight: 400; }
+  .course-group-head button { min-height: 28px; padding: 3px 7px; font-size: 11px; }
+  .step-list { display: flex; flex-direction: column; }
+  .step-list .choice-row { min-height: 39px; padding: 7px 6px; }
+  .status { flex: none; margin-left: auto; padding-left: 8px; font-size: 11px; color: #37735f; white-space: nowrap; }
+  .status.done { color: #7a8986; }
+  .message { min-height: 22px; margin: 10px 0 0; color: #536965; }
+  .message.error { color: #a3443c; }
+  .message.ok { color: #18745e; }
+  .mode-section { margin-top: 22px; }
+  .modebar { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 0 0; }
+  .mode-option { position: relative; display: flex; flex: 1 1 190px; align-items: flex-start; gap: 9px; padding: 10px 11px; border: 1px solid #cfdbd8; border-radius: 5px; background: #fff; cursor: pointer; }
+  .mode-option:has(input:checked) { border-color: #398775; box-shadow: inset 0 0 0 1px #398775; background: #edf6f2; }
+  .mode-option input { margin: 2px 0 0; accent-color: #14765f; }
+  .mode-option strong { display: block; font-size: 13px; }
+  .mode-option small { display: block; margin-top: 2px; color: #657875; font-size: 12px; }
+  .footer { position: fixed; z-index: 2; right: 0; bottom: 0; left: 0; display: flex; justify-content: center; border-top: 1px solid #cedbd7; background: rgba(250,252,251,.97); backdrop-filter: blur(8px); }
+  .footer-inner { width: min(1480px,100%); min-height: 70px; display: flex; align-items: center; gap: 12px; padding: 10px 22px; }
+  #summary-count { color: #344c49; white-space: nowrap; }
+  #summary-count strong { color: #14765f; }
+  #status-line { flex: 1; color: #667875; }
+  #start,#confirm-start { min-width: 154px; border-color: #126a59; background: #147b67; color: white; font-weight: 620; }
+  #start:hover:not(:disabled),#confirm-start:hover:not(:disabled) { background: #0e6656; }
+  #cancel { min-width: 86px; }
+  #continue-run { border-color: #8cb9aa; color: #f4fbf9; background: #286d5c; }
+  #exit-app { border-color: #d7b4a7; color: #7b352c; background: #fff8f5; }
+  dialog { width: min(620px,calc(100vw - 28px)); max-height: min(80vh,720px); padding: 0; border: 1px solid #a8bbb6; border-radius: 7px; color: #203133; box-shadow: 0 18px 60px #102d2b40; }
+  dialog::backdrop { background: #102d2ba8; }
+  .dialog-head { padding: 16px 20px; border-bottom: 1px solid #d5dfdc; }
+  .dialog-head h2 { margin: 0; font-size: 17px; }
+  .dialog-body { max-height: 55vh; overflow: auto; padding: 14px 20px; }
+  .dialog-body p { margin: 4px 0 10px; }
+  .dialog-body ul { margin: 6px 0; padding-left: 22px; }
+  .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px; border-top: 1px solid #d5dfdc; }
+  .monitor-head { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 4px 0 18px; border-bottom: 1px solid #d5dfdc; }
+  .eyebrow { margin: 0 0 4px; color: #55716b; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+  .monitor-head h1 { margin: 0; color: #20393a; font-size: 22px; line-height: 1.25; }
+  .monitor-head p:last-child { margin: 5px 0 0; color: #677975; }
+  .progress-wrap { width: min(380px,38vw); display: flex; align-items: center; gap: 12px; }
+  #progress { flex: 1; height: 8px; overflow: hidden; border-radius: 9px; background: #dfe8e5; }
+  #progress > i { display: block; width: 0; height: 100%; background: #25816a; transition: width .3s; }
+  #c-index { min-width: 64px; color: #45625c; font-variant-numeric: tabular-nums; text-align: right; }
+  .metrics { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 16px; padding: 14px 0; border-bottom: 1px solid #d5dfdc; }
+  .metric { min-width: 0; }
+  .metric-label { display: block; color: #71807d; font-size: 11px; }
+  .metric-value { display: block; margin-top: 3px; color: #263e3c; font-size: 13px; font-weight: 620; overflow-wrap: anywhere; }
+  .metric-value a { color: #2a6788; text-decoration: none; }
+  .metric-value a:hover { text-decoration: underline; }
+  .ai-state { display: inline-flex; align-items: center; gap: 7px; }
+  .dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: #8c9996; }
+  .dot.asking { background: #c88a24; }
+  .dot.answering { background: #25816a; box-shadow: 0 0 0 3px #25816a20; animation: pulse 1.1s infinite; }
+  .dot.done { background: #3978a5; }
+  .dot.error { background: #bd5147; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  .monitor-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; padding-top: 18px; }
+  .monitor-pane { min-width: 0; min-height: 300px; display: flex; flex-direction: column; border: 1px solid #d5dfdc; border-radius: 6px; background: #fff; }
+  .title { min-height: 42px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 12px; border-bottom: 1px solid #e0e8e5; color: #344d49; font-size: 12px; font-weight: 650; }
+  .title span:last-child { color: #72817e; font-weight: 400; }
+  .body { flex: 1; min-height: 0; overflow: auto; padding: 13px 14px; line-height: 1.7; }
+  .body::-webkit-scrollbar { width: 8px; }
+  .body::-webkit-scrollbar-thumb { border: 2px solid #fff; border-radius: 4px; background: #cbd7d3; }
+  .body h4 { margin: 13px 0 6px; padding-left: 8px; border-left: 3px solid #4a8b7a; color: #315b53; font-size: 13px; }
+  .body p { margin: 6px 0; color: #425653; }
+  .body li { margin: 3px 0 3px 6px; color: #425653; }
+  pre { margin: 8px 0; padding: 10px 12px; overflow: auto; border: 1px solid #dce5e2; border-radius: 4px; background: #f3f7f6; color: #285064; font: 12px/1.55 Consolas,"Cascadia Mono",monospace; }
+  code { padding: 1px 4px; border-radius: 3px; background: #edf3f1; color: #315f71; font-family: Consolas,monospace; }
+  .ai-msg { color: #304440; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+  .pass { color: #177353; font-weight: 650; }
+  .fail { color: #b5443d; font-weight: 650; }
+  .result-box { margin: 9px 0; padding: 10px 11px; border: 1px solid #d7e1de; border-radius: 5px; background: #f8faf9; }
+  .result-box.pass { border-color: #aad1bd; background: #eff8f2; }
+  .result-box.fail { border-color: #e5b9b3; background: #fff4f2; }
+  .result-box.neutral { border-color: #d7e1de; background: #f5f8f7; }
+  .neutral { color: #667875; font-weight: 650; }
+  .mono { font: 12px/1.55 Consolas,monospace; white-space: pre-wrap; }
+  .empty { color: #85928f; font-style: normal; }
+  .logs { margin-top: 18px; border: 1px solid #d5dfdc; border-radius: 6px; background: #fff; }
+  .logs-head { display: flex; justify-content: space-between; padding: 9px 12px; border-bottom: 1px solid #e0e8e5; color: #344d49; font-size: 12px; font-weight: 650; }
+  #logbox { max-height: 170px; overflow: auto; padding: 8px 12px; font: 11.5px/1.6 Consolas,monospace; }
+  #logbox div { padding: 1px 0; color: #6f7e7b; }
+  #logbox div.err { color: #b5443d; }
+  #logbox div.ai { color: #356b91; }
+  @media(max-width:1100px) { .layout { grid-template-columns: minmax(190px,.75fr) minmax(280px,1.25fr); } #steps-pane { grid-column: 1 / -1; padding: 0; border: 0; } .metrics { grid-template-columns: repeat(3,minmax(0,1fr)); } .monitor-grid { grid-template-columns: 1fr 1fr; } .monitor-pane:last-child { grid-column: 1 / -1; } }
+  @media(max-width:680px) { .topbar { flex-wrap: wrap; gap: 8px 12px; padding: 10px 14px; } .brand { min-width: 0; flex: 1; } .app-tabs { order: 3; width: 100%; } .login-state { max-width: 100%; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; gap: 8px; font-size: 11px; white-space: normal; } main { padding: 16px 14px 142px; } .steps-head { gap: 8px; flex-wrap: wrap; font-size: 12px; } .steps-head .step-divider { width: 12px; } .layout { grid-template-columns: minmax(0,1fr); gap: 22px; } .pane + .pane { padding: 0; border: 0; } #steps-pane { grid-column: auto; } .footer-inner { flex-wrap: wrap; padding: 9px 14px; } #status-line { flex-basis: 100%; order: 3; } #start { flex: 1; } .monitor-head { align-items: flex-start; flex-direction: column; gap: 12px; } .monitor-head h1 { font-size: 19px; } .progress-wrap { width: 100%; } .metrics { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; } .monitor-grid { grid-template-columns: 1fr; gap: 12px; } .monitor-pane,.monitor-pane:last-child { grid-column: auto; min-height: 240px; } }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="brand-mark">TA</span><span>Tempo AI 助手</span></div>
+  <nav class="app-tabs" aria-label="面板页面">
+    <button class="app-tab active" id="tab-scope" type="button">答题范围</button>
+    <button class="app-tab" id="tab-monitor" type="button">运行监控 <span class="tab-state" id="tab-state">待开始</span></button>
+  </nav>
+  <div class="login-state"><span class="login-item"><i class="login-dot"></i>Tempo 已登录</span><span class="login-item"><i class="login-dot"></i>AI 已就绪</span><button id="continue-run" type="button" hidden>继续选择范围</button><button id="exit-app" type="button" hidden>退出程序</button></div>
+</header>
+<main id="scope-view" class="panel-view">
+  <nav class="steps-head" aria-label="选择流程">
+    <span><b class="step-no">1</b> 选择课堂</span><i class="step-divider"></i>
+    <span><b class="step-no">2</b> 选择实验</span>
+    <i class="step-divider"></i>
+    <span><b class="step-no">3</b> 选择关卡范围</span>
+  </nav>
+  <div class="layout">
+    <section class="pane" id="classroom-pane">
+      <div class="pane-title"><h1>课堂</h1><small id="classroom-count"></small></div>
+      <div class="class-list" id="classrooms"><div class="empty">正在读取课堂列表…</div></div>
+    </section>
+    <section class="pane" id="courses-pane">
+      <div class="pane-title"><h2>实验</h2><small id="course-count"></small></div>
+      <div class="tools"><input id="course-search" type="search" placeholder="搜索实验名称或章节" aria-label="搜索实验名称或章节"></div>
+      <p class="range-note">勾选需要处理的实验。点选一个起点后，按住 Shift 再点终点可连续选择范围。</p>
+      <div class="course-list" id="courses"><div class="empty">请先选择课堂。</div></div>
+    </section>
+    <section class="pane" id="steps-pane">
+      <div class="pane-title"><h2>关卡范围</h2><small id="step-count"></small></div>
+      <p class="range-note">按实际关卡名称和完成状态选择。按住 Shift 连点可框选连续关卡；正式运行会跳过已完成项。</p>
+      <div class="selected-list" id="selected-courses"><div class="empty">选择实验后，这里会显示对应的关卡清单。</div></div>
+    </section>
+  </div>
+  <section class="mode-section" aria-labelledby="mode-title">
+    <div class="pane-title"><h2 id="mode-title">运行方式</h2><small>开始前会再次显示完整清单</small></div>
+    <div class="modebar">
+      <label class="mode-option"><input type="radio" name="mode" value="formal" checked><span><strong>正式答题</strong><small>真实 AI，提交答案并评测；默认跳过已完成关卡</small></span></label>
+      <label class="mode-option"><input type="radio" name="mode" value="trial"><span><strong>单关试运行</strong><small>真实 AI，只处理一关，不提交答案或评测</small></span></label>
+      <label class="mode-option"><input type="radio" name="mode" value="demo"><span><strong>流程演示</strong><small>模拟 AI，不提交答案或评测</small></span></label>
+    </div>
+  </section>
+  <div class="message" id="message" role="status" aria-live="polite"></div>
+</main>
+<main id="monitor-view" class="panel-view" hidden>
+  <section class="monitor-head">
+    <div><p class="eyebrow">实时运行状态</p><h1 id="run-title">等待范围确认</h1><p id="run-subtitle">范围确认后，答题过程会在这里实时显示。</p></div>
+    <div class="progress-wrap"><div id="progress" aria-label="任务进度"><i></i></div><span id="c-index">0 / 0</span></div>
+  </section>
+  <section class="metrics" aria-label="当前任务信息">
+    <div class="metric"><span class="metric-label">账号</span><strong class="metric-value" id="c-acc">-</strong></div>
+    <div class="metric"><span class="metric-label">课堂</span><strong class="metric-value" id="c-classroom">-</strong></div>
+    <div class="metric"><span class="metric-label">当前实验</span><strong class="metric-value" id="c-course">-</strong></div>
+    <div class="metric"><span class="metric-label">当前关卡</span><strong class="metric-value" id="c-step">-</strong></div>
+    <div class="metric"><span class="metric-label">AI 状态</span><strong class="metric-value ai-state" id="c-ai"><i class="dot"></i><span>空闲</span></strong></div>
+    <div class="metric"><span class="metric-label">用时 / 轮次</span><strong class="metric-value"><span id="c-clock">00:00</span> · <span id="c-round">-</span></strong></div>
+  </section>
+  <div class="monitor-grid">
+    <section class="monitor-pane"><div class="title"><span>平台题目原文</span><span id="t-qtype"></span></div><div class="body" id="p-desc"><span class="empty">等待开始…</span></div></section>
+    <section class="monitor-pane"><div class="title"><span>AI 回复过程</span><span id="t-len"></span></div><div class="body" id="p-ai"><span class="empty">等待提问…</span></div></section>
+    <section class="monitor-pane"><div class="title"><span>提交代码与评测结果</span><span id="t-attempt"></span></div><div class="body" id="p-code"><span class="empty">暂无</span></div></section>
+  </div>
+  <section class="logs"><div class="logs-head"><span>运行日志</span><a id="c-open" target="_blank" rel="noopener" hidden>打开当前实验页</a></div><div id="logbox"></div></section>
+</main>
+<footer class="footer" id="selection-footer">
+  <div class="footer-inner">
+    <div id="summary-count"><strong>0</strong> 个实验 · <strong>0</strong> 个关卡</div>
+    <div id="status-line" aria-live="polite">选择课堂、实验和关卡后即可确认。</div>
+    <button id="cancel" type="button">取消</button>
+    <button id="start" type="button" disabled>核对并开始</button>
+  </div>
+</footer>
+<dialog id="confirm-dialog">
+  <div class="dialog-head"><h2>确认本次答题范围</h2></div>
+  <div class="dialog-body" id="confirm-body"></div>
+  <div class="dialog-actions"><button id="back-to-edit" type="button">返回修改</button><button id="confirm-start" type="button">确认开始</button></div>
+</dialog>
+<script>
+const key = document.querySelector('meta[name="selection-key"]').content;
+const data = { classrooms: [], classroomId: "", classroomLabel: "", classroomEpoch: 0, courseEpoch: new Map(), courses: [], selectedCourses: new Set(), steps: new Map(), selectedSteps: new Map(), busy: 0, courseAnchor: -1, stepAnchors: new Map(), started: false, runSummary: "" };
+const el = id => document.getElementById(id);
+const mode = () => document.querySelector('input[name="mode"]:checked').value;
+const api = async (path, options = {}) => {
+  const response = await fetch(path, { cache: "no-store", ...options, headers: { ...(options.headers || {}), ...(options.method === "POST" ? { "Content-Type": "application/json", "X-Selection-Key": key } : {}) } });
+  if (!response.ok) {
+    const text = await response.text();
+    let message = text;
+    try { message = JSON.parse(text).error || text; } catch (_) {}
+    throw new Error(message || `请求失败 (${response.status})`);
+  }
+  if (response.status === 202) return null;
+  return response.json();
+};
+const make = (tag, className, text) => { const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = text; return node; };
+function showMessage(text, kind = "") { const box = el("message"); box.textContent = text; box.className = "message" + (kind ? " " + kind : ""); }
+function selectedFor(courseId) { if (!data.selectedSteps.has(courseId)) data.selectedSteps.set(courseId, new Set()); return data.selectedSteps.get(courseId); }
+function courseById(id) { return data.courses.find(item => item.id === id); }
+function stepById(courseId, id) { return (data.steps.get(courseId) || []).find(item => item.id === id); }
+function rangeRows(parent, event, kind, courseId = "") {
+  const rows = [...parent.querySelectorAll("label.choice-row")];
+  const row = event.target.closest("label.choice-row");
+  if (!row) return;
+  const index = rows.indexOf(row);
+  const anchorKey = courseId || kind;
+  const anchor = kind === "course" ? data.courseAnchor : data.stepAnchors.get(anchorKey);
+  const target = row.querySelector("input");
+  const checked = event.target === target ? target.checked : !target.checked;
+  if (event.shiftKey && anchor !== undefined && anchor >= 0 && anchor < rows.length) {
+    for (let i = Math.min(anchor,index); i <= Math.max(anchor,index); i++) {
+      const input = rows[i].querySelector("input");
+      if (input === target || input.disabled || input.checked === checked) continue;
+      input.checked = checked;
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  }
+  if (kind === "course") data.courseAnchor = index;
+  else data.stepAnchors.set(anchorKey, index);
+}
+function renderClassrooms() {
+  const target = el("classrooms"); target.replaceChildren();
+  el("classroom-count").textContent = `${data.classrooms.length} 个`;
+  if (!data.classrooms.length) { target.append(make("div","empty","当前没有进行中的课堂。")); return; }
+  for (const item of data.classrooms) {
+    const label = make("label","choice-row");
+    const input = document.createElement("input"); input.type = "radio"; input.name = "classroom"; input.value = item.id; input.checked = item.id === data.classroomId;
+    input.addEventListener("change", () => selectClassroom(item.id));
+    const main = make("span","choice-main"); main.append(make("span","choice-name",item.classroomName || "未命名课堂"),make("span","choice-meta",item.belongToClass || ""));
+    label.append(input,main); target.append(label);
+  }
+}
+async function selectClassroom(id) {
+  data.classroomId = id; data.classroomEpoch++; data.courseEpoch.clear(); data.courses = []; data.selectedCourses.clear(); data.steps.clear(); data.selectedSteps.clear();
+  const epoch = data.classroomEpoch;
+  renderClassrooms(); renderCourses(); renderSelected(); updateSummary(); showMessage("正在读取该课堂的实验清单…");
+  try { const courses = await api(`/api/select/courses?classroom_id=${encodeURIComponent(id)}`); if (epoch !== data.classroomEpoch) return; data.courses = courses; renderCourses(); showMessage("实验清单已加载。", "ok"); }
+  catch (error) { if (epoch === data.classroomEpoch) showMessage(`读取实验失败：${error.message}`,"error"); }
+  updateSummary();
+}
+function renderCourses() {
+  const target = el("courses"); target.replaceChildren();
+  el("course-count").textContent = data.classroomId ? `${data.courses.length} 个` : "";
+  if (!data.classroomId) { target.append(make("div","empty","请先选择课堂。")); return; }
+  const query = el("course-search").value.trim().toLocaleLowerCase();
+  const filtered = data.courses.filter(item => `${item.number} ${item.chapter} ${item.name}`.toLocaleLowerCase().includes(query));
+  if (!filtered.length) { target.append(make("div","empty",query ? "没有匹配的实验。" : "该课堂没有可选实验。")); return; }
+  for (const item of filtered) {
+    const label = make("label","choice-row");
+    const input = document.createElement("input"); input.type = "checkbox"; input.checked = data.selectedCourses.has(item.id); input.dataset.courseId = item.id;
+    input.addEventListener("change", () => toggleCourse(item.id,input.checked));
+    const main = make("span","choice-main"); main.append(make("span","choice-name",item.name || "未命名实验"),make("span","choice-meta",`${item.chapter || "未分章"} · ${item.number || ""}`));
+    label.append(input,main); target.append(label);
+  }
+}
+async function toggleCourse(id, checked) {
+  const epoch = data.classroomEpoch;
+  const courseEpoch = (data.courseEpoch.get(id) || 0) + 1;
+  data.courseEpoch.set(id,courseEpoch);
+  if (!checked) { data.selectedCourses.delete(id); data.steps.delete(id); data.selectedSteps.delete(id); renderSelected(); renderCourses(); updateSummary(); return; }
+  data.selectedCourses.add(id); data.busy++; renderCourses(); renderSelected(); updateSummary();
+  try {
+    const items = await api(`/api/select/steps?classroom_id=${encodeURIComponent(data.classroomId)}&course_id=${encodeURIComponent(id)}`);
+    if (epoch !== data.classroomEpoch || data.courseEpoch.get(id) !== courseEpoch || !data.selectedCourses.has(id)) return;
+    data.steps.set(id,items);
+    if (!data.selectedSteps.has(id)) data.selectedSteps.set(id,new Set());
+    showMessage(`${courseById(id)?.name || "实验"}：已读取 ${items.length} 个实际关卡。`, "ok");
+  } catch (error) {
+    if (epoch !== data.classroomEpoch || data.courseEpoch.get(id) !== courseEpoch) return;
+    data.selectedCourses.delete(id); data.steps.delete(id); data.selectedSteps.delete(id);
+    showMessage(`暂时读不到「${courseById(id)?.name || "该实验"}」的关卡：${error.message}。可先在 Tempo 打开实验并启动实践环境，再回来重试。`,"error");
+  } finally { data.busy--; renderCourses(); renderSelected(); updateSummary(); }
+}
+function renderSelected() {
+  const target = el("selected-courses"); target.replaceChildren();
+  const ids = [...data.selectedCourses];
+  if (!ids.length) { target.append(make("div","empty","选择实验后，这里会显示对应的关卡清单。")); el("step-count").textContent = ""; return; }
+  let all = 0, picked = 0;
+  for (const id of ids) {
+    const course = courseById(id); if (!course) continue;
+    const group = make("section","course-group");
+    const head = make("div","course-group-head");
+    const title = make("h3", "", course.name || "未命名实验"); title.append(make("small","",`${course.chapter || "未分章"} · ${course.number || ""}`));
+    const clear = make("button","","清空本实验范围"); clear.type = "button"; clear.addEventListener("click",() => { selectedFor(id).clear(); renderSelected(); updateSummary(); });
+    head.append(title,clear); group.append(head);
+    const items = data.steps.get(id);
+    if (!items) { group.append(make("div","empty","正在读取关卡…")); target.append(group); continue; }
+    all += items.length;
+    const tools = make("div","tools");
+    const unfinished = make("button","","选择本实验未完成关卡"); unfinished.type = "button"; unfinished.addEventListener("click",() => { for (const step of items) if (!step.finished) selectedFor(id).add(step.id); renderSelected(); updateSummary(); });
+    tools.append(unfinished); group.append(tools);
+    const list = make("div","step-list"); list.dataset.courseId = id;
+    for (const step of items) {
+      const label = make("label","choice-row");
+      const skipped = mode() !== "trial" && step.finished;
+      const input = document.createElement("input"); input.type = "checkbox"; input.checked = selectedFor(id).has(step.id) && !skipped; input.dataset.stepId = step.id;
+      input.disabled = skipped;
+      input.addEventListener("change",() => { if (input.checked) selectedFor(id).add(step.id); else selectedFor(id).delete(step.id); updateSummary(); });
+      const main = make("span","choice-main"); main.append(make("span","choice-name",`第 ${step.sequence} 关 · ${step.name || "未命名关卡"}`));
+      const status = make("span",`status${step.finished ? " done" : ""}`,step.finished ? (skipped ? "已完成 · 将跳过" : "已完成") : "未完成");
+      label.append(input,main,status); list.append(label);
+      if (!skipped && input.checked) picked++;
+    }
+    group.append(list); target.append(group);
+  }
+  el("step-count").textContent = `${picked} / ${all} 个可选`;
+}
+function effectiveSelection() {
+  const courses = [];
+  let steps = 0, passed = 0;
+  for (const courseId of data.selectedCourses) {
+    const selected = selectedFor(courseId), available = data.steps.get(courseId) || [], stepIds = [];
+    for (const id of selected) {
+      const step = available.find(item => item.id === id);
+      if (!step) continue;
+      if (step.finished && mode() !== "trial") { passed++; continue; }
+      stepIds.push(id);
+    }
+    if (stepIds.length) { courses.push({ courseId, stepIds }); steps += stepIds.length; }
+  }
+  return { courses, steps, passed };
+}
+function updateSummary() {
+  const selection = effectiveSelection();
+  el("summary-count").replaceChildren(make("strong","",String(selection.courses.length)),document.createTextNode(" 个实验 · "),make("strong","",String(selection.steps)),document.createTextNode(" 个关卡"));
+  const ready = !!data.classroomId && selection.steps > 0 && data.busy === 0 && (mode() !== "trial" || selection.steps === 1);
+  el("start").disabled = !ready;
+  if (!selection.steps && !data.busy) el("status-line").textContent = "请至少选择一个未完成关卡。";
+  else if (mode() === "trial" && selection.steps !== 1) el("status-line").textContent = "单关试运行需要且只能选择一个关卡。";
+  else if (selection.passed) el("status-line").textContent = `${selection.passed} 个已完成关卡会跳过；确认范围后才会启动。`;
+  else if (ready) el("status-line").textContent = "范围就绪；确认前不会启动实践环境、AI 请求或评测。";
+  else el("status-line").textContent = data.busy ? "正在读取关卡清单…" : "选择课堂、实验和关卡后即可确认。";
+  el("step-count").textContent = `${selection.steps} 个已选`;
+}
+function showConfirmation() {
+  const selection = effectiveSelection();
+  const body = el("confirm-body"); body.replaceChildren();
+  const classroom = data.classrooms.find(item => item.id === data.classroomId);
+  const labels = { formal:"正式答题 · 提交答案并评测", trial:"单关试运行 · 真实 AI，不提交答案或评测", demo:"流程演示 · 模拟 AI，不提交答案或评测" };
+  body.append(make("p","",`课堂：${classroom?.classroomName || ""} ${classroom?.belongToClass || ""}`),make("p","",`方式：${labels[mode()]}`));
+  const list = document.createElement("ul");
+  for (const chosen of selection.courses) {
+    const course = courseById(chosen.courseId); const item = document.createElement("li");
+    item.append(document.createTextNode(`${course?.chapter || ""} ${course?.number || ""} ${course?.name || ""}`));
+    const steps = document.createElement("ul");
+    for (const id of chosen.stepIds) { const step = stepById(chosen.courseId,id); if (step) steps.append(make("li","",`第 ${step.sequence} 关 · ${step.name || "未命名关卡"}`)); }
+    item.append(steps); list.append(item);
+  }
+  body.append(list);
+  if (selection.passed) body.append(make("p","muted",`${selection.passed} 个已完成关卡会跳过。`));
+  if (mode() === "trial") body.append(make("p","muted","本次严格只处理上面的一关，不提交答案或评测。"));
+  el("confirm-dialog").showModal();
+}
+function payload() {
+  const selected = effectiveSelection();
+  return { mode: mode(), classroom_id: data.classroomId, courses: selected.courses.map(item => ({ course_id: item.courseId, step_ids: item.stepIds })) };
+}
+el("course-search").addEventListener("input",renderCourses);
+el("courses").addEventListener("click",event => rangeRows(el("courses"),event,"course"));
+el("selected-courses").addEventListener("click",event => { const list = event.target.closest(".step-list"); if (list) rangeRows(list,event,"step",list.dataset.courseId); });
+document.querySelectorAll('input[name="mode"]').forEach(input => input.addEventListener("change",() => { renderSelected(); updateSummary(); }));
+el("start").addEventListener("click",showConfirmation);
+el("back-to-edit").addEventListener("click",() => el("confirm-dialog").close());
+el("confirm-start").addEventListener("click",async () => {
+  const button = el("confirm-start"); button.disabled = true; button.textContent = "正在确认…";
+  try {
+    const selected = effectiveSelection();
+    const classroom = data.classrooms.find(item => item.id === data.classroomId);
+    data.classroomLabel = `${classroom?.classroomName || ""} ${classroom?.belongToClass || ""}`.trim() || "当前课堂";
+    data.runSummary = `${data.classroomLabel} · ${selected.courses.length} 个实验 · ${selected.steps} 个关卡`;
+    await api("/api/select/start",{ method:"POST", body:JSON.stringify(payload()) });
+    el("confirm-dialog").close();
+    data.started = true;
+    document.querySelectorAll("#scope-view input, #scope-view button").forEach(control => { control.disabled = true; });
+    el("tab-state").textContent = "运行中";
+    el("status-line").textContent = "范围已确认并锁定；运行过程请查看监控面板。";
+    showPanelView("monitor");
+    tick();
+  }
+  catch (error) { el("confirm-dialog").close(); showMessage(`无法开始：${error.message}`,"error"); }
+  finally { button.disabled = false; button.textContent = "确认开始"; }
+});
+el("continue-run").addEventListener("click",async () => {
+  const button = el("continue-run"); button.disabled = true; button.textContent = "正在返回选择…";
+  try {
+    await api("/api/select/continue",{ method:"POST", body:"{}" });
+    data.started = false; data.runSummary = ""; data.classroomId = ""; data.classroomLabel = "";
+    data.classroomEpoch++; data.courseEpoch.clear(); data.classrooms = []; data.courses = []; data.selectedCourses.clear(); data.steps.clear(); data.selectedSteps.clear(); data.busy = 0;
+    data.courseAnchor = -1; data.stepAnchors.clear();
+    el("course-search").value = "";
+    document.querySelectorAll("#scope-view input, #scope-view button").forEach(control => { control.disabled = false; });
+    el("run-title").textContent = "等待范围确认";
+    el("run-subtitle").textContent = "选择下一组课堂、实验和关卡范围。";
+    el("tab-state").textContent = "待开始";
+    el("continue-run").hidden = true; el("exit-app").hidden = true;
+    showPanelView("scope");
+    renderClassrooms(); renderCourses(); renderSelected(); updateSummary();
+    await loadClassrooms();
+  } catch (error) { showMessage(`无法继续选择：${error.message}`,"error"); }
+  finally { button.disabled = false; button.textContent = "继续选择范围"; }
+});
+el("exit-app").addEventListener("click",async () => {
+  const button = el("exit-app"); button.disabled = true; button.textContent = "正在清理…";
+  try { await api("/api/select/close",{ method:"POST", body:"{}" }); button.textContent = "正在退出"; }
+  catch (error) { button.disabled = false; button.textContent = "退出程序"; showMessage(`退出失败：${error.message}`,"error"); }
+});
+el("cancel").addEventListener("click",async () => {
+  el("cancel").disabled = true;
+  try { await api("/api/select/cancel",{ method:"POST", body:"{}" }); el("status-line").textContent = "已取消，可关闭此标签页。"; el("start").disabled = true; }
+  catch (error) { showMessage(`取消失败：${error.message}`,"error"); el("cancel").disabled = false; }
+});
+async function loadClassrooms() {
+  try {
+    data.classrooms = await api("/api/select/classrooms"); renderClassrooms();
+    if (data.classrooms.length === 1) await selectClassroom(data.classrooms[0].id);
+    else if (!data.classrooms.length) showMessage("当前账号没有进行中的课堂。","error");
+  } catch (error) { showMessage(`读取课堂失败：${error.message}`,"error"); }
+  updateSummary();
+}
+async function init() { await loadClassrooms(); }
+function showPanelView(name) {
+  const monitor = name === "monitor";
+  el("scope-view").hidden = monitor;
+  el("monitor-view").hidden = !monitor;
+  el("selection-footer").hidden = monitor;
+  el("tab-scope").classList.toggle("active",!monitor);
+  el("tab-monitor").classList.toggle("active",monitor);
+}
+el("tab-scope").addEventListener("click",() => showPanelView("scope"));
+el("tab-monitor").addEventListener("click",() => showPanelView("monitor"));
+
+const monitorLast = {};
+function monitorSetIfChanged(id,key,html) {
+  if (monitorLast[key] === html) return;
+  monitorLast[key] = html;
+  el(id).innerHTML = html;
+}
+function monitorEscape(value) {
+  return String(value || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+function monitorMarkdown(value) {
+  let output = monitorEscape(value);
+  output = output.replace(/```[a-zA-Z]*\n([\s\S]*?)```/g,(match,code) => "<pre>" + code.replace(/\n+$/,"") + "</pre>");
+  output = output.replace(/!\[[^\]]*\]\([^)]*\)(\{\{[^}]*\}\})?/g,"");
+  output = output.replace(/^#{1,6}\s+(.+)$/gm,"<h4>$1</h4>");
+  output = output.replace(/\*\*(.+?)\*\*/g,"<b>$1</b>");
+  output = output.replace(/`([^`]+)`/g,"<code>$1</code>");
+  output = output.replace(/^\s*[-*]\s+(.+)$/gm,"<li>$1</li>");
+  output = output.replace(/^&gt;\s?(.*)$/gm,"<p class='muted'>$1</p>");
+  output = output.replace(/\n{2,}/g,"</p><p>");
+  return "<p>" + output + "</p>";
+}
+function renderMonitor(state) {
+  el("c-acc").textContent = state.account || "-";
+  el("c-course").textContent = state.course || "-";
+  el("c-step").textContent = state.step_no ? `第 ${state.step_no} 关 · ${state.step_name || ""}` : "-";
+  el("c-round").textContent = state.chat_round || "-";
+  el("c-index").textContent = `${state.index || 0} / ${state.total || 0}`;
+  el("c-classroom").textContent = data.classroomLabel || "-";
+  el("progress").firstElementChild.style.width = (state.total ? Math.min(100,(state.index / state.total) * 100) : 0) + "%";
+
+  const statuses = { idle:["","空闲"], asking:["asking","等待 AI 回复"], answering:["answering","AI 正在输出"], done:["done","本关已完成"], finished:["done","任务已结束"], error:["error","运行异常"] };
+  const [statusClass,statusText] = statuses[state.ai_status] || ["",state.ai_status || "空闲"];
+  el("c-ai").replaceChildren(Object.assign(document.createElement("i"),{className:`dot ${statusClass}`}),document.createElement("span"));
+  el("c-ai").lastElementChild.textContent = statusText;
+  const seconds = Math.max(0,Math.floor(Date.now()/1000 - (state.started_at || Date.now()/1000)));
+  el("c-clock").textContent = String(Math.floor(seconds/60)).padStart(2,"0") + ":" + String(seconds%60).padStart(2,"0");
+  el("t-qtype").textContent = state.qtype || "";
+  monitorSetIfChanged("p-desc","desc",state.desc ? monitorMarkdown(state.desc) : '<span class="empty">等待开始…</span>');
+
+  let answer = '<span class="empty">等待提问…</span>';
+  if (state.ai_answer) {
+    answer = '<div class="ai-msg">' + monitorMarkdown(state.ai_answer) + "</div>";
+    const body = el("p-ai");
+    if (monitorLast.answerLength !== state.ai_answer.length) {
+      monitorLast.answerLength = state.ai_answer.length;
+      setTimeout(() => { body.scrollTop = body.scrollHeight; },10);
+    }
+  } else if (state.ai_status === "asking") answer = '<span class="empty">题目已发送，等待 AI 返回内容…</span>';
+  else if (state.ai_status === "error") answer = '<span class="fail">' + monitorEscape(state.eval_detail || "AI 调用失败") + "</span>";
+  monitorSetIfChanged("p-ai","answer",answer);
+  el("t-len").textContent = state.prompt_len ? `prompt ${state.prompt_len} 字` : "";
+
+  let result = state.final_code ? "<pre>" + monitorEscape(state.final_code) + "</pre>" : "";
+  if (state.eval_detail) {
+    const resultClass = state.eval_passed === true ? "pass" : state.eval_passed === false ? "fail" : "neutral";
+    const resultTitle = state.eval_passed === true ? "评测通过" : state.eval_passed === false ? "评测未通过" : "未提交评测";
+    result += `<div class="result-box ${resultClass}"><div class="${resultClass}">${resultTitle}</div><div class="mono">${monitorEscape(state.eval_detail)}</div></div>`;
+  }
+  monitorSetIfChanged("p-code","result",result || '<span class="empty">暂无代码或评测结果</span>');
+  el("t-attempt").textContent = state.attempt ? `第 ${state.attempt} 次作答` : "";
+  const link = el("c-open");
+  if (state.practice_url) { link.href = state.practice_url; link.hidden = false; } else { link.hidden = true; }
+  const logs = (state.logs || []).slice(-80).map(item => `<div class="${monitorEscape(item.kind)}">${monitorEscape(item.t)}  ${monitorEscape(item.text)}</div>`).join("");
+  if (monitorLast.logs !== logs) { monitorLast.logs = logs; el("logbox").innerHTML = logs; el("logbox").scrollTop = el("logbox").scrollHeight; }
+
+  if (state.ai_status === "finished") {
+    el("run-title").textContent = "本次范围已完成";
+    el("tab-state").textContent = "本段完成";
+    el("continue-run").hidden = false;
+    el("exit-app").hidden = false;
+    el("run-subtitle").textContent = "本次范围已完成。可以继续选择新的范围，或退出程序并执行会话清理。";
+    return;
+  }
+  el("continue-run").hidden = true;
+  el("exit-app").hidden = true;
+  if (state.ai_status === "error") el("run-title").textContent = "任务运行异常";
+  else if (data.started && state.total) el("run-title").textContent = "正在处理答题范围";
+  else if (data.started) el("run-title").textContent = "任务已启动";
+  el("run-subtitle").textContent = data.runSummary || "范围确认后，答题过程会在这里实时显示。";
+  if (state.ai_status === "error") el("tab-state").textContent = "有异常";
+}
+async function tick() {
+  try {
+    const response = await fetch("/state",{cache:"no-store"});
+    if (response.ok) renderMonitor(await response.json());
+  } catch (_) {}
+}
+setInterval(tick,700);
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,55 @@
+# CNB 为源码权威；所有 push/tag 验证后镜像，PR 不读取 GitHub 凭据。
+main:
+  push:
+    - &verified-build
+      name: test-build-sync
+      docker:
+        image: golang:1.26.5-bookworm
+      env:
+        GOPROXY: https://goproxy.cn,direct
+      stages:
+        - name: 测试与静态检查
+          script: bash scripts/check.sh
+        - name: 四平台交叉构建
+          script: go run ./tools/build
+        - &save-artifacts
+          name: 保留构建附件
+          image: cnbcool/attachments:latest
+          settings:
+            commit: $CNB_COMMIT
+            attachments:
+              - artifacts/release/*
+              - artifacts/coverage.out
+            ttl: 14
+        - name: GitHub 整仓同步
+          imports: https://cnb.cool/wuyin.keji/MM/api-token-key/-/blob/main/env.github.yml
+          script: |
+            if [ "$CNB_IS_TAG" = "true" ]; then
+              export TEMPO_VERIFIED_REF="refs/tags/$CNB_BRANCH"
+            else
+              export TEMPO_VERIFIED_REF="refs/heads/$CNB_BRANCH"
+            fi
+            go run ./tools/mirror
+  pull_request:
+    - &verify-only
+      name: verify
+      docker:
+        image: golang:1.26.5-bookworm
+      env:
+        GOPROXY: https://goproxy.cn,direct
+      stages:
+        - name: 测试与静态检查
+          script: bash scripts/check.sh
+        - name: 四平台交叉构建
+          script: go run ./tools/build
+$:
+  push:
+    - *verified-build
+  tag_push:
+    - *verified-build
+  vscode:
+    - docker:
+        image: docker.cnb.cool/wuyin.keji/dockerenv/default-code-env
+      services:
+        - vscode
+        - docker

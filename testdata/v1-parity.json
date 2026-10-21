@@ -1,0 +1,394 @@
+[
+  {
+    "kind": "prompt",
+    "step": {
+      "courseStepId": "fixture",
+      "title": "换行与中文",
+      "courseName": "Java",
+      "description": "说明 ![图](https://example.invalid/img){{width=2}} 完成代码",
+      "questionType": "code",
+      "questionInfo": {
+        "questionCodeList": [
+          {
+            "codePath": "src/Test.java",
+            "name": "Test.java",
+            "code": "class Test {\n/********* Begin *********/\n/********* End *********/\n}"
+          }
+        ]
+      },
+      "trialSetList": [
+        {
+          "input": "",
+          "expectedOutput": "你好\n"
+        }
+      ]
+    },
+    "feedback": "",
+    "seq": 0,
+    "expected": "下面是一道新的实训编程题，请只针对这一题作答，忽略之前对话里的其它题目。\n\n【课程】Java\n【关卡】换行与中文\n\n【题目说明】\n说明  完成代码\n\n【待补全代码：src/Test.java】\n```java\nclass Test {\n/********* Begin *********/\n/********* End *********/\n}\n```\n\n【测试数据】\n  用例1: 输入=（无） | 预期输出=你好\n\n  注意：预期输出的**最后一行也有换行**，请所有行都用 System.out.println，不要用 System.out.print。\n\n【输出要求】\n1. 直接输出完整的、可编译运行的 Java 代码，不要解释、不要客套话。\n2. 必须原样保留 /********* Begin *********/ 和 /********* End *********/ 两行注释，\n   把你的实现写在它们之间；Begin/End 之外的 package、import、类与方法签名不要改动。\n3. 输出必须与预期逐字符一致：注意中英文标点、每行缩进的空格数、以及末尾的换行数量。\n4. 只用一个 ```java 代码块输出最终代码。"
+  },
+  {
+    "kind": "prompt",
+    "step": {
+      "courseStepId": "fixture",
+      "title": "换行与中文",
+      "courseName": "Java",
+      "description": "说明 ![图](https://example.invalid/img){{width=2}} 完成代码",
+      "questionType": "code",
+      "questionInfo": {
+        "questionCodeList": [
+          {
+            "codePath": "src/Test.java",
+            "name": "Test.java",
+            "code": "class Test {\n/********* Begin *********/\n/********* End *********/\n}"
+          }
+        ]
+      },
+      "trialSetList": [
+        {
+          "input": "",
+          "expectedOutput": "你好\n"
+        }
+      ]
+    },
+    "feedback": "",
+    "seq": 2,
+    "expected": "（本次连续对话的第 2 题）下面是一道新的实训编程题，请只针对这一题作答，忽略之前对话里的其它题目。\n\n【课程】Java\n【关卡】换行与中文\n\n【题目说明】\n说明  完成代码\n\n【待补全代码：src/Test.java】\n```java\nclass Test {\n/********* Begin *********/\n/********* End *********/\n}\n```\n\n【测试数据】\n  用例1: 输入=（无） | 预期输出=你好\n\n  注意：预期输出的**最后一行也有换行**，请所有行都用 System.out.println，不要用 System.out.print。\n\n【输出要求】\n1. 直接输出完整的、可编译运行的 Java 代码，不要解释、不要客套话。\n2. 必须原样保留 /********* Begin *********/ 和 /********* End *********/ 两行注释，\n   把你的实现写在它们之间；Begin/End 之外的 package、import、类与方法签名不要改动。\n3. 输出必须与预期逐字符一致：注意中英文标点、每行缩进的空格数、以及末尾的换行数量。\n4. 只用一个 ```java 代码块输出最终代码。"
+  },
+  {
+    "kind": "prompt",
+    "step": {
+      "courseStepId": "fixture",
+      "title": "换行与中文",
+      "courseName": "Java",
+      "description": "说明 ![图](https://example.invalid/img){{width=2}} 完成代码",
+      "questionType": "code",
+      "questionInfo": {
+        "questionCodeList": [
+          {
+            "codePath": "src/Test.java",
+            "name": "Test.java",
+            "code": "class Test {\n/********* Begin *********/\n/********* End *********/\n}"
+          }
+        ]
+      },
+      "trialSetList": [
+        {
+          "input": "",
+          "expectedOutput": "你好\n"
+        }
+      ]
+    },
+    "feedback": "输出少了换行",
+    "seq": 0,
+    "expected": "下面是一道新的实训编程题，请只针对这一题作答，忽略之前对话里的其它题目。\n\n【课程】Java\n【关卡】换行与中文\n\n【题目说明】\n说明  完成代码\n\n【待补全代码：src/Test.java】\n```java\nclass Test {\n/********* Begin *********/\n/********* End *********/\n}\n```\n\n【测试数据】\n  用例1: 输入=（无） | 预期输出=你好\n\n  注意：预期输出的**最后一行也有换行**，请所有行都用 System.out.println，不要用 System.out.print。\n\n【输出要求】\n1. 直接输出完整的、可编译运行的 Java 代码，不要解释、不要客套话。\n2. 必须原样保留 /********* Begin *********/ 和 /********* End *********/ 两行注释，\n   把你的实现写在它们之间；Begin/End 之外的 package、import、类与方法签名不要改动。\n3. 输出必须与预期逐字符一致：注意中英文标点、每行缩进的空格数、以及末尾的换行数量。\n4. 只用一个 ```java 代码块输出最终代码。\n\n【上次提交未通过，请修正】\n输出少了换行"
+  },
+  {
+    "kind": "prompt",
+    "step": {
+      "courseStepId": "fixture",
+      "title": "换行与中文",
+      "courseName": "Java",
+      "description": "说明 ![图](https://example.invalid/img){{width=2}} 完成代码",
+      "questionType": "code",
+      "questionInfo": {
+        "questionCodeList": [
+          {
+            "codePath": "src/Test.java",
+            "name": "Test.java",
+            "code": "class Test {\n/********* Begin *********/\n/********* End *********/\n}"
+          }
+        ]
+      },
+      "trialSetList": [
+        {
+          "input": "",
+          "expectedOutput": "你好\n"
+        }
+      ]
+    },
+    "feedback": "输出少了换行",
+    "seq": 2,
+    "expected": "（本次连续对话的第 2 题）下面是一道新的实训编程题，请只针对这一题作答，忽略之前对话里的其它题目。\n\n【课程】Java\n【关卡】换行与中文\n\n【题目说明】\n说明  完成代码\n\n【待补全代码：src/Test.java】\n```java\nclass Test {\n/********* Begin *********/\n/********* End *********/\n}\n```\n\n【测试数据】\n  用例1: 输入=（无） | 预期输出=你好\n\n  注意：预期输出的**最后一行也有换行**，请所有行都用 System.out.println，不要用 System.out.print。\n\n【输出要求】\n1. 直接输出完整的、可编译运行的 Java 代码，不要解释、不要客套话。\n2. 必须原样保留 /********* Begin *********/ 和 /********* End *********/ 两行注释，\n   把你的实现写在它们之间；Begin/End 之外的 package、import、类与方法签名不要改动。\n3. 输出必须与预期逐字符一致：注意中英文标点、每行缩进的空格数、以及末尾的换行数量。\n4. 只用一个 ```java 代码块输出最终代码。\n\n【上次提交未通过，请修正】\n输出少了换行"
+  },
+  {
+    "kind": "prompt",
+    "step": {
+      "courseStepId": "fixture",
+      "title": "换行与中文",
+      "courseName": "Java",
+      "description": "说明 ![图](https://example.invalid/img){{width=2}} 完成代码",
+      "questionType": "code",
+      "questionInfo": {
+        "questionCodeList": [
+          {
+            "codePath": "src/Test.java",
+            "name": "Test.java",
+            "code": "class Test {\n/********* Begin *********/\n/********* End *********/\n}"
+          },
+          {
+            "codePath": "A.java",
+            "name": "A.java",
+            "code": "class A {}"
+          }
+        ]
+      },
+      "trialSetList": [
+        {
+          "input": "",
+          "expectedOutput": "你好\n"
+        }
+      ]
+    },
+    "feedback": "",
+    "seq": 0,
+    "expected": "下面是一道新的实训编程题，请只针对这一题作答，忽略之前对话里的其它题目。\n\n【课程】Java\n【关卡】换行与中文\n\n【题目说明】\n说明  完成代码\n\n【待补全代码：src/Test.java】\n```java\nclass Test {\n/********* Begin *********/\n/********* End *********/\n}\n```\n\n【待补全代码：A.java】\n```java\nclass A {}\n```\n\n【测试数据】\n  用例1: 输入=（无） | 预期输出=你好\n\n  注意：预期输出的**最后一行也有换行**，请所有行都用 System.out.println，不要用 System.out.print。\n\n【输出要求】本关有 2 个文件，请分别输出每个文件的完整内容。\n格式严格如下（每个文件一段，路径必须与下面完全一致，不要用 ``` 包裹）：\n===FILE: src/Test.java===\n（这里放该文件的完整代码）\n\n===FILE: A.java===\n（这里放该文件的完整代码）\n\n2. 必须原样保留 /********* Begin *********/ 和 /********* End *********/ 两行注释，\n   把你的实现写在它们之间；Begin/End 之外的 package、import、类与方法签名不要改动。\n3. 输出必须与预期逐字符一致：注意中英文标点、每行缩进的空格数、以及末尾的换行数量。\n4. 每个文件的 public class 名必须与文件名一致。"
+  },
+  {
+    "kind": "prompt",
+    "step": {
+      "courseStepId": "fixture",
+      "title": "换行与中文",
+      "courseName": "Java",
+      "description": "说明 ![图](https://example.invalid/img){{width=2}} 完成代码",
+      "questionType": "code",
+      "questionInfo": {
+        "questionCodeList": [
+          {
+            "codePath": "src/Test.java",
+            "name": "Test.java",
+            "code": "class Test {\n/********* Begin *********/\n/********* End *********/\n}"
+          },
+          {
+            "codePath": "A.java",
+            "name": "A.java",
+            "code": "class A {}"
+          }
+        ]
+      },
+      "trialSetList": [
+        {
+          "input": "",
+          "expectedOutput": "你好\n"
+        }
+      ]
+    },
+    "feedback": "",
+    "seq": 2,
+    "expected": "（本次连续对话的第 2 题）下面是一道新的实训编程题，请只针对这一题作答，忽略之前对话里的其它题目。\n\n【课程】Java\n【关卡】换行与中文\n\n【题目说明】\n说明  完成代码\n\n【待补全代码：src/Test.java】\n```java\nclass Test {\n/********* Begin *********/\n/********* End *********/\n}\n```\n\n【待补全代码：A.java】\n```java\nclass A {}\n```\n\n【测试数据】\n  用例1: 输入=（无） | 预期输出=你好\n\n  注意：预期输出的**最后一行也有换行**，请所有行都用 System.out.println，不要用 System.out.print。\n\n【输出要求】本关有 2 个文件，请分别输出每个文件的完整内容。\n格式严格如下（每个文件一段，路径必须与下面完全一致，不要用 ``` 包裹）：\n===FILE: src/Test.java===\n（这里放该文件的完整代码）\n\n===FILE: A.java===\n（这里放该文件的完整代码）\n\n2. 必须原样保留 /********* Begin *********/ 和 /********* End *********/ 两行注释，\n   把你的实现写在它们之间；Begin/End 之外的 package、import、类与方法签名不要改动。\n3. 输出必须与预期逐字符一致：注意中英文标点、每行缩进的空格数、以及末尾的换行数量。\n4. 每个文件的 public class 名必须与文件名一致。"
+  },
+  {
+    "kind": "prompt",
+    "step": {
+      "courseStepId": "fixture",
+      "title": "换行与中文",
+      "courseName": "Java",
+      "description": "说明 ![图](https://example.invalid/img){{width=2}} 完成代码",
+      "questionType": "code",
+      "questionInfo": {
+        "questionCodeList": [
+          {
+            "codePath": "src/Test.java",
+            "name": "Test.java",
+            "code": "class Test {\n/********* Begin *********/\n/********* End *********/\n}"
+          },
+          {
+            "codePath": "A.java",
+            "name": "A.java",
+            "code": "class A {}"
+          }
+        ]
+      },
+      "trialSetList": [
+        {
+          "input": "",
+          "expectedOutput": "你好\n"
+        }
+      ]
+    },
+    "feedback": "输出少了换行",
+    "seq": 0,
+    "expected": "下面是一道新的实训编程题，请只针对这一题作答，忽略之前对话里的其它题目。\n\n【课程】Java\n【关卡】换行与中文\n\n【题目说明】\n说明  完成代码\n\n【待补全代码：src/Test.java】\n```java\nclass Test {\n/********* Begin *********/\n/********* End *********/\n}\n```\n\n【待补全代码：A.java】\n```java\nclass A {}\n```\n\n【测试数据】\n  用例1: 输入=（无） | 预期输出=你好\n\n  注意：预期输出的**最后一行也有换行**，请所有行都用 System.out.println，不要用 System.out.print。\n\n【输出要求】本关有 2 个文件，请分别输出每个文件的完整内容。\n格式严格如下（每个文件一段，路径必须与下面完全一致，不要用 ``` 包裹）：\n===FILE: src/Test.java===\n（这里放该文件的完整代码）\n\n===FILE: A.java===\n（这里放该文件的完整代码）\n\n2. 必须原样保留 /********* Begin *********/ 和 /********* End *********/ 两行注释，\n   把你的实现写在它们之间；Begin/End 之外的 package、import、类与方法签名不要改动。\n3. 输出必须与预期逐字符一致：注意中英文标点、每行缩进的空格数、以及末尾的换行数量。\n4. 每个文件的 public class 名必须与文件名一致。\n\n【上次提交未通过，请修正】\n输出少了换行"
+  },
+  {
+    "kind": "prompt",
+    "step": {
+      "courseStepId": "fixture",
+      "title": "换行与中文",
+      "courseName": "Java",
+      "description": "说明 ![图](https://example.invalid/img){{width=2}} 完成代码",
+      "questionType": "code",
+      "questionInfo": {
+        "questionCodeList": [
+          {
+            "codePath": "src/Test.java",
+            "name": "Test.java",
+            "code": "class Test {\n/********* Begin *********/\n/********* End *********/\n}"
+          },
+          {
+            "codePath": "A.java",
+            "name": "A.java",
+            "code": "class A {}"
+          }
+        ]
+      },
+      "trialSetList": [
+        {
+          "input": "",
+          "expectedOutput": "你好\n"
+        }
+      ]
+    },
+    "feedback": "输出少了换行",
+    "seq": 2,
+    "expected": "（本次连续对话的第 2 题）下面是一道新的实训编程题，请只针对这一题作答，忽略之前对话里的其它题目。\n\n【课程】Java\n【关卡】换行与中文\n\n【题目说明】\n说明  完成代码\n\n【待补全代码：src/Test.java】\n```java\nclass Test {\n/********* Begin *********/\n/********* End *********/\n}\n```\n\n【待补全代码：A.java】\n```java\nclass A {}\n```\n\n【测试数据】\n  用例1: 输入=（无） | 预期输出=你好\n\n  注意：预期输出的**最后一行也有换行**，请所有行都用 System.out.println，不要用 System.out.print。\n\n【输出要求】本关有 2 个文件，请分别输出每个文件的完整内容。\n格式严格如下（每个文件一段，路径必须与下面完全一致，不要用 ``` 包裹）：\n===FILE: src/Test.java===\n（这里放该文件的完整代码）\n\n===FILE: A.java===\n（这里放该文件的完整代码）\n\n2. 必须原样保留 /********* Begin *********/ 和 /********* End *********/ 两行注释，\n   把你的实现写在它们之间；Begin/End 之外的 package、import、类与方法签名不要改动。\n3. 输出必须与预期逐字符一致：注意中英文标点、每行缩进的空格数、以及末尾的换行数量。\n4. 每个文件的 public class 名必须与文件名一致。\n\n【上次提交未通过，请修正】\n输出少了换行"
+  },
+  {
+    "kind": "select",
+    "items": [
+      {
+        "questionId": 1,
+        "type": "single_choice",
+        "title": "<p>1 &lt; 2？</p>",
+        "content": [
+          "正确",
+          "错误"
+        ]
+      }
+    ],
+    "feedback": "",
+    "expected": "下面是一组实训选择题，请作答。\n\n【第1题】（单选题）\n1 < 2？\nA. 正确\nB. 错误\n\n【作答要求】\n1. 严格按下面的格式输出，每题一行，不要解释、不要复述题目：\n   1. B\n   2. AC\n2. 多选题写多个字母（如 AC），单选题只写一个字母，判断题 A=正确、B=错误。\n3. 题号必须和上面的题号一致，每题都要作答，不能漏。"
+  },
+  {
+    "kind": "select",
+    "items": [
+      {
+        "questionId": 1,
+        "type": "single_choice",
+        "title": "<p>1 &lt; 2？</p>",
+        "content": [
+          "正确",
+          "错误"
+        ]
+      }
+    ],
+    "feedback": "第1题错误",
+    "expected": "下面是一组实训选择题，请作答。\n\n【第1题】（单选题）\n1 < 2？\nA. 正确\nB. 错误\n\n【作答要求】\n1. 严格按下面的格式输出，每题一行，不要解释、不要复述题目：\n   1. B\n   2. AC\n2. 多选题写多个字母（如 AC），单选题只写一个字母，判断题 A=正确、B=错误。\n3. 题号必须和上面的题号一致，每题都要作答，不能漏。\n\n【上次作答有错，请注意】\n第1题错误"
+  },
+  {
+    "kind": "html",
+    "text": "",
+    "expected": ""
+  },
+  {
+    "kind": "html",
+    "text": "<div>a<br>b</div><pre>  x &amp; y</pre>",
+    "expected": "a\nb\n  x & y"
+  },
+  {
+    "kind": "html",
+    "text": "<p>甲</p>\n\n\n<span>乙</span>",
+    "expected": "甲\n\n乙"
+  },
+  {
+    "kind": "choice",
+    "text": "1. b\n第2: CA\n3. F",
+    "expected": [
+      "B",
+      "AC",
+      "F"
+    ]
+  },
+  {
+    "kind": "choice",
+    "text": "A\nBC\nF",
+    "expected": [
+      "A",
+      "BC",
+      "F"
+    ]
+  },
+  {
+    "kind": "choice",
+    "text": "",
+    "expected": [
+      "",
+      "",
+      ""
+    ]
+  },
+  {
+    "kind": "choice",
+    "text": "1. A\n3. c",
+    "expected": [
+      "A",
+      "",
+      "C"
+    ]
+  },
+  {
+    "kind": "choice",
+    "text": "99. A\n1: ba",
+    "expected": [
+      "AB",
+      "",
+      ""
+    ]
+  },
+  {
+    "kind": "extract",
+    "text": "",
+    "expected": ""
+  },
+  {
+    "kind": "extract",
+    "text": "```java\nclass A {}\n```",
+    "expected": "class A {}"
+  },
+  {
+    "kind": "extract",
+    "text": "说明：代码\njava\nclass A {}\n以上即可",
+    "expected": "class A {}"
+  },
+  {
+    "kind": "extract",
+    "text": "```java\nx\n```\n```java\nclass Longer {}\n```",
+    "expected": "class Longer {}"
+  },
+  {
+    "kind": "diff",
+    "expectedOutput": "中文：\n",
+    "actualOutput": "中文:\n",
+    "expected": "第 2 个字符开始不同：预期 '：'，实际 ':'（预期片段 '中文：\\n'）"
+  },
+  {
+    "kind": "diff",
+    "expectedOutput": "x\n",
+    "actualOutput": "x",
+    "expected": "实际输出少了结尾：'\\n'"
+  },
+  {
+    "kind": "diff",
+    "expectedOutput": "x",
+    "actualOutput": "x\n",
+    "expected": "实际输出多了结尾：'\\n'"
+  },
+  {
+    "kind": "diff",
+    "expectedOutput": "",
+    "actualOutput": "",
+    "expected": ""
+  },
+  {
+    "kind": "diff",
+    "expectedOutput": "a b",
+    "actualOutput": "a\tb",
+    "expected": "第 1 个字符开始不同：预期 ' '，实际 '\\t'（预期片段 'a b'）"
+  },
+  {
+    "kind": "diff",
+    "expectedOutput": "it's",
+    "actualOutput": "it’s",
+    "expected": "第 2 个字符开始不同：预期 \"'\"，实际 '’'（预期片段 \"it's\"）"
+  }
+]

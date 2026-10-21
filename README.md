@@ -1,210 +1,82 @@
-# Tempo 实训平台 · AI 自动答题助手
+# Tempo AI 自动答题助手
 
-用**网页版 DeepSeek** 自动完成美林 Tempo 实训平台（`tempo-talents`）里的课程实验关卡，
-支持**编程题**和**选择题 / 判断题**，全程有实时监控面板，题目、AI 作答、最终结果同屏可见。
+Go v2 迁移版：通过本机 Edge / Chrome 驱动 Tempo 平台，AI 可选 DeepSeek 网页或兼容 OpenAI Chat Completions 的 API，监控面板内嵌于可执行程序。当前分支仅维护 Go 实现；旧版 Python 源码、依赖文件和启动脚本已移除，历史版本保存在 [python-v1 tag](https://cnb.cool/wuyin.keji/Tools/tempo-ai-answer/-/tree/python-v1)。
 
-> 仅供个人学习与效率研究使用，请遵守所在学校的学术规范。
+当前为开发分支，尚未完成真实平台和全部系统的发行验收。流水线生成的是 **轻量包**，需要已有 Edge / Chrome；带 Chromium 与 Linux 必要库的完整免依赖包仍需完成资源锁定与干净系统验证，不能把轻量包视为完整包。
 
-![监控面板](docs/preview.png)
+## 使用
 
----
+解压与系统匹配的 ZIP。Windows 使用 `tempo-ai-answer.exe`，macOS / Linux 使用 `tempo-ai-answer`；macOS 另附 `启动.command`。Go 支持在一台机器上交叉编译不同目标，但生成的二进制仍区分系统和 CPU 架构：Windows x64、macOS Intel、macOS Apple Silicon、Linux x64 各用对应的包。
 
-## 特性
+首次运行在程序同目录生成 `config.json`，填写平台地址、账号和密码后再次启动。默认始终读取可执行文件所在目录的配置，从其他工作目录启动或双击 `启动.command` 也使用同一份文件；配置错误会显示实际路径。
 
-- **两种题型**：编程题（生成代码 → 写回 → 评测）、选择题 / 判断题（作答 → 提交 → 评测）
-- **实时监控面板**：左边题目原文、中间 AI 逐字输出、右边最终代码与评测结果，底部运行日志
-- **答案自动修正**：评测不通过时，把「预期输出 vs 实际输出」的差异（精确到第几个字符）回传给 AI 重新作答
-- **上下文自动回收**：每做 3 题就删掉当前对话、新开一个，避免上下文过长导致响应变慢
-- **跑完自动清理**：结束时把本次在 DeepSeek 里产生的对话全部删除，不留垃圾
-- **环境自动启动**：平台的实训容器按需启动，程序会自动初始化并等到就绪
-- **范围控制**：一条指令指定章节 / 实验范围，跑前先列清单让你核对
-
----
-
-## 快速开始
-
-### 1. 安装依赖
-
-```bash
-pip install -r requirements.txt
+```text
+tempo-ai-answer login
+tempo-ai-answer classrooms
+tempo-ai-answer list
+tempo-ai-answer --classroom "课堂ID" run --scope "第1章 1-3" --steps "1-2" --limit 2 --dry-run
+tempo-ai-answer run --scope "第1章 1-5"
+tempo-ai-answer run --scope "1-3" --steps "1-3,8" --limit 3 --dry-run
+tempo-ai-answer run --demo
+tempo-ai-answer check --local
+tempo-ai-answer check
+tempo-ai-answer ai-test
 ```
 
-需要 Python 3.10+，以及本机装有 Edge 或 Chrome（程序复用系统浏览器，不额外下载 Chromium）。
+直接运行 `./tempo-ai-answer`（Windows 为 `tempo-ai-answer.exe`）会先登录 Tempo。默认 `deepseek_web` 模式会打开 DeepSeek 并自动检测登录态；两个登录都完成后自动打开范围面板。选择 `openai_compatible` 模式时无需打开 DeepSeek 或登录其网页，直接进入范围面板。
 
-### 2. 配置
+面板按名称显示课堂、实验和真实关卡清单。选择课堂后勾选需要的实验，再选择每个实验中要处理的关卡；点击一个起点后按住 Shift 点击终点，可以连续选择实验或关卡范围。已完成状态会直接显示，正式答题和流程演示自动跳过已完成关卡。页面不会默认勾选全部实验或关卡，范围可搜索、分实验设置，开始前还会逐项展示计划供确认；确认之前不会启动实践环境、AI 作答或评测。
 
-首次运行任意命令时，程序会自动从 `config.example.json` 生成 `config.json` 然后退出。
-打开 `config.json` 填写：
+首次测试建议在面板选择 **单关试运行**：只选择一个实验中的一个关卡，使用当前配置的真实 AI 生成答案，但不提交答案或评测；允许测试已完成关卡。**流程演示**使用模拟 AI，**正式答题**会提交答案并评测。每段范围完成后，可以在监控面板继续选择下一段范围；点击右上角“退出程序”才会退出，DeepSeek 网页模式会按配置清理本次新建的问答会话。也可运行 `tempo-ai-answer menu` 使用原终端交互菜单。
 
-```jsonc
-{
-  "platform": {
-    "base_url": "http://你的平台地址/tempo-talents/",
-    "username": "你的学号或账号",
-    "password": "你的密码",
-    "classroom_id": ""        // 留空即可，程序会自动选你加入的第一个课堂
-  }
-}
-```
+若关卡列表暂不可读或为空，会提示检查网络，并先在平台打开该实验、启动实践环境后重试。菜单不会在关卡选择前自动启动实践环境，也不会编造可选编号。显式 CLI `--steps` 保留平台关卡编号含义，并保留确认后自动准备实践环境的行为。
 
-### 3. 登录（只做一次）
+交互范围输入支持中文逗号，如 `1-3，5`。错误序号、倒序范围和空输入分别提示如何修改。连接、登录、配置及平台数据错误会显示排查建议；完整技术错误写入提示位置的私有日志。控制台日志仅保留中文提示，日志文件继续记录时间、级别和脱敏后的诊断信息。试运行结果区分“生成答案”与正式运行的“评测通过”，未处理关卡时会提示检查范围与完成状态。
 
-```bash
-python main.py login
-```
+命令行可用 `classrooms` 查看课堂 ID，以 `--classroom "ID"` 指定课堂（优先于配置中的 `platform.classroom_id`），用 `--course "名称关键字"` 或 `--scope "第1章 1-3"` 选择实验，再用 `--steps "1-2,5"` 选择关卡、`--limit 1` 限制总处理数。`--scope "1-3"` 单独使用时表示第 1 章第 3 个实验。多课堂且没有指定课堂时需要交互选择；`--yes` / `--headless` 要求明确实验范围，多课堂时还需明确课堂，避免后台运行误选第一课堂或全部实验。命令行已显式指定实验范围但未指定 `--steps` 时，处理所选实验内未跳过的关卡。
 
-弹出浏览器后：
+`--demo` 使用假 AI 并强制不提交；`--dry-run` 使用真实 AI 并禁止编程题与选择题提交。`--headless` 后台运行，不自动打开监控面板。首次登录请用可见模式完成平台验证码；仅 DeepSeek 网页模式需要登录 DeepSeek。默认跳过已完成关卡；交互选择仅作用于本次运行，不改写个人配置里的课堂 ID。
 
-1. 平台会自动用 `config.json` 里的账号登录；
-2. 打开 DeepSeek 对话页，**手动扫码或输密码登录**；
-3. 回到终端按回车，会告诉你是否登录成功。
+`config.json` 默认随程序放置，换机器时可随程序一起复制。独立浏览器 profile 和日志默认存放于系统用户配置目录下的 `tempo-ai-answer`：
 
-登录状态保存在 `data/profile`，之后不用再登。
+- Windows：`%AppData%/tempo-ai-answer`
+- macOS：`~/Library/Application Support/tempo-ai-answer`
+- Linux：`${XDG_CONFIG_HOME:-~/.config}/tempo-ai-answer`
 
-### 4. 开始答题
+可用 `--data-dir "路径"` 更改 profile 和日志位置；显式指定该参数且未传 `--config` 时，也从该数据目录读取 `config.json`。配置路径优先级为 `--config` → 显式 `--data-dir` 中的 `config.json` → 程序同目录的 `config.json`。显式相对路径以终端当前工作目录为基准；`--config "旧版/config.json"` 可直接读取 v1 配置。旧测试包曾使用系统目录配置，新版默认使用程序同目录，请将已填写的文件放到程序旁边。不要把个人配置、profile 或日志加入仓库或分享给他人；升级替换程序时保留已有配置和用户数据。
 
-```bash
-python main.py run
-```
+AI 默认使用 DeepSeek 网页。要切换到 DeepSeek API 或其他兼容 OpenAI Chat Completions 的服务，在 `config.json` 中设置：
 
-或者用菜单（不带参数运行）：
-
-```bash
-python main.py
-```
-
----
-
-## 范围指令
-
-选完「自动答题」后，程序只问一条指令：
-
-| 输入 | 含义 |
-| --- | --- |
-| 直接回车 | 全部实验里所有未完成的关 |
-| `第1章` / `第三章` | 该章全部实验（中文数字也认） |
-| `第1章 1-5` | 第 1 章的 1-1 到 1-5 号实验 |
-| `1-3` | 只做 1-3 号实验 |
-| `第2章 2` | 第 2 章第 2 个实验 |
-| `Java高级特性` | 按实验名 / 章名模糊匹配 |
-
-输入后会先打印清单给你核对：
-
-```
-范围：第1章 第1~5个实验
-将处理 5 个实验：
-     1-1  Java入门 - 初体验
-     ...
-计划处理 23 关
-```
-
-清单不对就 Ctrl+C 中断，此时还没动过成绩。
-
-> **耗时**：每个实验的实训容器首次启动要 10~40 秒，换实验时会重新启动。
-> 一个实验（约 5 关）通常 1~3 分钟，一整章十几分钟属于正常。
-
----
-
-## 常用命令
-
-```bash
-python main.py login                 # 登录（平台 + DeepSeek）
-python main.py list                  # 列出实验与关卡（✓ 已完成）
-python main.py run                   # 全部未完成
-python main.py run --scope "第1章 1-5"
-python main.py run --scope "1-3" --steps 2-4    # 再做该实验的第 2~4 关
-python main.py run --limit 3         # 最多做 3 关
-python main.py run --dry-run         # 调 AI 但不提交评测
-python main.py run --demo            # 演示模式：假 AI + 不提交，只看界面
-python main.py ai-test               # 测试 DeepSeek 通道是否正常
-python main.py check                 # 环境自检
-```
-
----
-
-## 配置项
-
-```jsonc
+```json
 {
   "ai": {
-    "answer_timeout": 180          // 等 AI 回答的最长秒数
-  },
-  "run": {
-    "max_retry": 2,                // 评测失败后重答次数
-    "delay_between_steps": 3,      // 每关之间的间隔
-    "skip_passed": true,           // 跳过已通过的关
-    "cleanup_chat": true,          // 跑完删除本次产生的 DeepSeek 对话
-    "questions_per_chat": 3        // 每 3 题换一个对话
+    "provider": "openai_compatible",
+    "base_url": "https://api.deepseek.com",
+    "model": "deepseek-chat",
+    "api_key": "",
+    "api_key_env": "TEMPO_AI_API_KEY",
+    "answer_timeout": 180
   }
 }
 ```
 
----
+将密钥填写到本机配置的 `api_key`，或在系统环境变量 `TEMPO_AI_API_KEY` 中设置；环境变量值优先。可运行 `tempo-ai-answer ai-test` 发送一次测试请求，这条 API 测试不需要启动浏览器。配置文件包含平台密码或 API 密钥，请勿提交或分享。API 请求按单题独立发送，不在服务端创建可清理的网页对话。
 
-## 项目结构
+`check --local` 只检查本机资源、目录写权限及浏览器候选，不读取账号或访问远端；`check` 另检查平台及 AI。浏览器依次尝试 Edge、Chrome、随包 Chromium，不接管日常浏览器 profile。临时指定浏览器路径可用 `TEMPO_BROWSER`；程序启动时不下载浏览器。
 
-```
-tempo-ai-answer/
-├─ main.py               命令行入口 + 交互菜单
-├─ config.example.json   配置模板（不含任何个人信息）
-├─ bot/
-│  ├─ platform.py        平台接口：登录、启动环境、抓题、提交、评测
-│  ├─ ai_web.py          DeepSeek 网页版驱动（单对话、流式读取）
-│  ├─ solver.py          拼 prompt、合并代码、答案解析、失败重答
-│  └─ dashboard.py       实时监控面板（本地 HTTP 服务）
-├─ docs/preview.png      面板截图
-├─ data/profile/         浏览器登录态（自动生成，已被 .gitignore 排除）
-└─ logs/                 日志目录
+## 开发与流水线
+
+开发需要 Go **1.26.5**、Git 和用于 CDP fixture 的浏览器；用户运行已构建的程序无需 Go / Python / Node。
+
+```sh
+go mod download
+bash scripts/check.sh
+TEMPO_BROWSER_TEST=1 bash scripts/check.sh
+go run ./tools/build
 ```
 
----
+支持交叉构建 Windows amd64、macOS amd64/arm64、Linux amd64；ZIP 和 SHA256SUMS 输出到 `artifacts/release/`。macOS / Linux 文件若经过不保留执行权限的解压工具处理，需恢复执行权限；优先使用系统解压工具。macOS 签名与公证另行验收。
 
-## 工作原理
+[流水线设计与密钥配置](docs/CI.md) · [迁移与验收记录](docs/MIGRATION.md) · [PRD](docs/PRD.md) · [开发规范](agent.md)
 
-程序不走截图 OCR，而是直接调用平台接口：
-
-```
-登录平台
-  → 初始化该实验的实训容器（10~40 秒）
-  → 拉取题目 / 代码框架 / 测试用例
-  → 拼成 prompt 交给网页版 DeepSeek（整个运行共用少量对话，每 3 题换一次）
-  → 取回代码或答案 → 写回平台 → 触发评测
-  → 未通过则把「预期 vs 实际」的精确差异回传，让 AI 修正（默认重试 2 次）
-  → 跑完删除本次产生的对话
-```
-
-几个实现细节值得一提：
-
-- 平台接口必须带 `X-Requested-With: XMLHttpRequest`，否则会被网关重定向到登录页；
-- 账号密码在前端做了加密，所以登录走浏览器表单而不是直接调接口；
-- 请求全部在页面上下文里用 `fetch` 发出，自动携带 cookie；
-- DeepSeek 页面上没有可靠的「生成中」标志，判断回答是否写完靠内容特征（代码闭合、段落齐全）+ 文本稳定时长；
-- 代码块顶部的「java / 复制 / 下载」工具栏会被剔除，否则会混进代码导致编译失败；
-- 多个文件时按 `===FILE: 路径===` 分节生成并回填，同时强制 `public class` 名与文件名一致。
-
----
-
-## 已知限制
-
-| 情况 | 说明 |
-| --- | --- |
-| 命令行类关卡 | 题目给的是 `README.md`，要求你在实训终端里敲命令（如安装 JDK），程序会识别并跳过 |
-| 多文件题 | 已支持，但个别题（目录树缩进这类）AI 可能反复出错，重试 3 次不过会自动跳过 |
-| 平台判定细节 | 极少数题预期输出与判定逻辑不一致（例如只差结尾换行），会一直不过，建议手动完成 |
-| 图形验证码 | 登录时如果出现验证码，程序会提示你在浏览器窗口里手动填写 |
-
----
-
-## 免责声明
-
-本项目仅用于**学习浏览器自动化与接口调试技术**。
-把它用于课程作业、考试成绩等场景可能违反你所在学校的学术诚信规定，请自行判断并承担后果。
-作者不对使用本工具造成的任何后果负责。
-
-平台接口与页面结构随时可能变化，本项目不保证长期可用。
-
----
-
-## License
-
-[MIT](LICENSE)
+CNB 为主仓库。测试与构建通过后，源仓库的 push/tag 流水线把全部分支与标签同步至 [GitHub 镜像](https://github.com/Maimai06/tempo-ai-answer)。GitHub 的分支和标签以 CNB 为准，不在 GitHub 独立提交。同步不迁移 Issue、PR 或 Release。

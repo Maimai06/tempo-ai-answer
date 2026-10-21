@@ -94,6 +94,36 @@ func Plan(source, target map[string]string) []string {
 	return args
 }
 
+// ConflictingRefs 返回目标中不在源快照内、且阻止源 ref 创建的文件/目录冲突项。
+func ConflictingRefs(source, target map[string]string) []string {
+	conflicts := []string{}
+	for targetRef := range target {
+		if source[targetRef] != "" {
+			continue
+		}
+		for sourceRef := range source {
+			if strings.HasPrefix(sourceRef, targetRef+"/") || strings.HasPrefix(targetRef, sourceRef+"/") {
+				conflicts = append(conflicts, targetRef)
+				break
+			}
+		}
+	}
+	sort.Strings(conflicts)
+	return conflicts
+}
+
+func deletionPlan(refs []string, target map[string]string) []string {
+	args := []string{"push", "--atomic", "--porcelain"}
+	for _, ref := range refs {
+		args = append(args, "--force-with-lease="+ref+":"+target[ref])
+	}
+	args = append(args, "target")
+	for _, ref := range refs {
+		args = append(args, ":"+ref)
+	}
+	return args
+}
+
 // Run 拉取完整源引用，在隔离裸库中执行整仓同步，不修改调用者工作区。
 func Run(ctx context.Context, o Options) error {
 	if o.Source == "" || o.Target == "" || strings.HasPrefix(o.Source, "-") || strings.HasPrefix(o.Target, "-") {
@@ -134,7 +164,8 @@ func Run(ctx context.Context, o Options) error {
 		return err
 	}
 	target := refs(t)
-	args := Plan(source, target)
+	conflicts := ConflictingRefs(source, target)
+	deletions := deletionPlan(conflicts, target)
 	// 若没有变化，仍验证快照，不发空 refspec 推送。
 	same := len(source) == len(target)
 	for k, v := range source {
@@ -143,18 +174,34 @@ func Run(ctx context.Context, o Options) error {
 	if same {
 		return nil
 	}
-	fresh, err := git(ctx, dir, "ls-remote", "--refs", "source", "refs/heads/*", "refs/tags/*")
-	if err != nil {
+	if err = verifySourceSnapshot(ctx, dir, source); err != nil {
 		return err
 	}
-	if !maps.Equal(refs(fresh), source) {
-		return fmt.Errorf("CNB 引用在同步准备期间变化，请重试新流水线")
-	}
 	if o.DryRun {
-		args = append(args[:1], append([]string{"--dry-run"}, args[1:]...)...)
+		if len(deletions) > 0 {
+			fmt.Println("dry-run: 先清理路径冲突 ref:", strings.Join(deletions, " "))
+		}
+		fmt.Println("dry-run: 原子同步 ref:", strings.Join(Plan(source, expectedTarget(target, conflicts)), " "))
+		return nil
 	}
-	_, err = git(ctx, dir, args...)
-	if err != nil || o.DryRun {
+	if len(conflicts) > 0 {
+		if _, err = git(ctx, dir, deletions...); err != nil {
+			return err
+		}
+		cleaned, e := git(ctx, dir, "ls-remote", "--refs", "target", "refs/heads/*", "refs/tags/*")
+		if e != nil {
+			return e
+		}
+		actualTarget := refs(cleaned)
+		if !maps.Equal(actualTarget, expectedTarget(target, conflicts)) {
+			return fmt.Errorf("GitHub 引用在清理路徑冲突后发生并发变化，已停止同步")
+		}
+		target = actualTarget
+		if err = verifySourceSnapshot(ctx, dir, source); err != nil {
+			return err
+		}
+	}
+	if _, err = git(ctx, dir, Plan(source, target)...); err != nil {
 		return err
 	}
 	actual, err := git(ctx, dir, "ls-remote", "--refs", "target", "refs/heads/*", "refs/tags/*")
@@ -163,6 +210,25 @@ func Run(ctx context.Context, o Options) error {
 	}
 	if !maps.Equal(refs(actual), source) {
 		return fmt.Errorf("镜像后远端引用与源快照不一致，可能有并发新增分支")
+	}
+	return nil
+}
+
+func expectedTarget(target map[string]string, deleted []string) map[string]string {
+	expected := maps.Clone(target)
+	for _, ref := range deleted {
+		delete(expected, ref)
+	}
+	return expected
+}
+
+func verifySourceSnapshot(ctx context.Context, dir string, source map[string]string) error {
+	fresh, err := git(ctx, dir, "ls-remote", "--refs", "source", "refs/heads/*", "refs/tags/*")
+	if err != nil {
+		return err
+	}
+	if !maps.Equal(refs(fresh), source) {
+		return fmt.Errorf("CNB 引用在同步准备期间变化，请重试新流水线")
 	}
 	return nil
 }

@@ -11,7 +11,7 @@ CNB 是源码权威仓库，GitHub 为整仓镜像。顺序固定为：格式检
 
 用户确认无需备份 GitHub 原历史。仅镜像 `refs/heads/*` 与 `refs/tags/*`，包括删除 CNB 已不存在的分支/标签。Issue、PR、Release、Actions 运行记录和仓库设置不属于 Git 对象，不做迁移。不要在 GitHub 镜像上独立开发。分支保护阻止覆盖时，需调整镜像仓库规则。
 
-脚本从 CNB 拉取完整历史到独立临时裸库，不使用 CI 浅克隆。记录目标每个 ref 的对象 ID，用逐 ref 的 `--force-with-lease` 和单次 `--atomic` 推送。创建、覆盖、删除必须全部成功；远端并发变更则失败，不自动放宽 lease。源事件对应提交变化时拒绝镜像，等待新事件重新验证。
+脚本从 CNB 拉取完整历史到独立临时裸库，不使用 CI 浅克隆。记录目标每个 ref 的对象 ID，用逐 ref 的 `--force-with-lease` 和 `--atomic` 推送。通常创建、覆盖和删除在一次原子推送中完成。若 GitHub 上 CNB 已删除的旧 ref 阻止创建新的嵌套 ref（例如 `legacy` 阻止 `legacy/python-v1`），脚本先以观测到的对象 ID 和 lease 原子删除冲突旧 ref，再确认目标快照仅少了这些删除项、CNB 源快照未变化，最后带完整 lease 原子推送剩余 refs。任一阶段发现并发变化或拒绝即停止，不放宽 lease；冲突清理已完成而后续推送失败时，下一次验证通过的 CNB 流水线会按最新完整快照收敛镜像。源事件对应提交变化时拒绝镜像，等待新事件重新验证。
 
 ## 配置凭据
 
@@ -30,7 +30,7 @@ PR 不导入密钥；只有源仓库中有写权限的成员可通过 push/tag �
 
 完整包必须锁定浏览器来源、版本、摘要，携带许可证，并在支持的干净系统做断网启动/CDP 测试，验证 Linux 浏览器依赖和 macOS 隔离属性；未满足时不能发布为完整可用 v2。CNB 的 Linux 测试和交叉编译不代表各目标系统的原生运行、签名或公证验收。各目标系统运行及真实平台、DeepSeek 登录仍需单独验收。
 
-`bash scripts/check.sh` 要求 scope/prompts/codemerge/config 各包语句覆盖率 ≥90%。镜像回归测试仅操作临时本地裸库，覆盖不同历史、标签、删除、并发 lease 与幂等。
+`bash scripts/check.sh` 要求 scope/prompts/codemerge/config 各包语句覆盖率 ≥90%。镜像回归测试仅操作临时本地裸库，覆盖不同历史、标签、删除、目录/文件冲突、并发 lease 与幂等。`go run ./tools/mirror --dry-run` 只读取源和目标 refs，并打印冲突清理与后续原子同步计划，不写入 GitHub。
 
 语法依据：[CNB grammar](https://docs.cnb.cool/zh/build/grammar.md)、[环境变量](https://docs.cnb.cool/zh/build/env.md)。
 

@@ -25,7 +25,7 @@ func git(ctx context.Context, dir string, args ...string) (string, error) {
 	out, err := cmd.Output()
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
-			if diagnostic := sanitizeGitDiagnostic(string(exitErr.Stderr)); diagnostic != "" {
+			if diagnostic := sanitizeGitFailure(exitErr.Stderr, out); diagnostic != "" {
 				return "", fmt.Errorf("git %s 失败: %w: %s", args[0], err, diagnostic)
 			}
 		}
@@ -35,6 +35,10 @@ func git(ctx context.Context, dir string, args ...string) (string, error) {
 }
 
 var credentialURL = regexp.MustCompile(`(?i)(https?://)[^\s/@]+@`)
+
+func sanitizeGitFailure(stderr, stdout []byte) string {
+	return sanitizeGitDiagnostic(string(stderr) + "\n" + string(stdout))
+}
 
 func sanitizeGitDiagnostic(diagnostic string) string {
 	diagnostic = strings.Join(strings.Fields(diagnostic), " ")

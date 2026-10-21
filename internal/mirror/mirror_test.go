@@ -104,3 +104,12 @@ func TestSanitizeGitDiagnosticLimitsLength(t *testing.T) {
 		t.Fatalf("diagnostic length = %d, want 1000", len([]rune(got)))
 	}
 }
+
+func TestSanitizeGitFailureIncludesBothStreams(t *testing.T) {
+	got := sanitizeGitFailure([]byte("fatal: push failed"), []byte("! [remote rejected] main (protected branch)"))
+	for _, want := range []string{"fatal: push failed", "remote rejected", "protected branch"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("diagnostic lost %q: %s", want, got)
+		}
+	}
+}

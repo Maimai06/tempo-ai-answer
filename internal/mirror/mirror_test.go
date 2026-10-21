@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -34,11 +35,13 @@ func TestMirror(t *testing.T) {
 		run(d, "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "--allow-empty", "-m", msg)
 	}
 	commit(src, "source")
-	run(src, "branch", "legacy")
+	run(src, "branch", "legacy/python-v1")
 	run(src, "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "tag", "-a", "python-v1", "-m", "archive")
 	commit(other, "different root")
 	run(other, "remote", "add", "target", dst)
 	run(other, "push", "target", "main")
+	run(other, "branch", "legacy")
+	run(other, "push", "target", "legacy")
 	run(other, "branch", "obsolete")
 	run(other, "push", "target", "obsolete")
 	o := Options{Source: src, Target: dst, ExpectedRef: "refs/heads/main", ExpectedCommit: run(src, "rev-parse", "HEAD")}
@@ -56,9 +59,15 @@ func TestMirror(t *testing.T) {
 	if run(dst, "rev-parse", "refs/heads/main") != o.ExpectedCommit {
 		t.Fatal("different root not mirrored")
 	}
-	s := run(dst, "show-ref")
-	if strings.Contains(s, "obsolete") || !strings.Contains(s, "legacy") || !strings.Contains(s, "python-v1") {
-		t.Fatal(s)
+	s := refs(run(dst, "show-ref"))
+	if _, ok := s["refs/heads/obsolete"]; ok {
+		t.Fatalf("obsolete branch was not deleted: %#v", s)
+	}
+	if _, ok := s["refs/heads/legacy"]; ok {
+		t.Fatalf("conflicting legacy branch was not removed: %#v", s)
+	}
+	if s["refs/heads/legacy/python-v1"] == "" || s["refs/tags/python-v1"] == "" {
+		t.Fatalf("nested branch and tag were not mirrored: %#v", s)
 	}
 	if e := Run(ctx, o); e != nil {
 		t.Fatal(e)
@@ -78,6 +87,40 @@ func TestMirror(t *testing.T) {
 func TestInvalid(t *testing.T) {
 	if e := Run(context.Background(), Options{}); e == nil {
 		t.Fatal("empty URLs")
+	}
+}
+
+func TestConflictingRefs(t *testing.T) {
+	source := map[string]string{
+		"refs/heads/legacy/python-v1": "source-1",
+		"refs/heads/archive":          "source-2",
+		"refs/tags/v2":                "source-3",
+		"refs/heads/stable":           "same",
+	}
+	target := map[string]string{
+		"refs/heads/legacy":               "target-1",
+		"refs/heads/archive/old":          "target-2",
+		"refs/tags/v2/old":                "target-3",
+		"refs/heads/unrelated":            "target-4",
+		"refs/heads/stable":               "same",
+		"refs/heads/legacy/python-v1-old": "target-5",
+	}
+	want := []string{"refs/heads/archive/old", "refs/heads/legacy", "refs/tags/v2/old"}
+	got := ConflictingRefs(source, target)
+	if !slices.Equal(got, want) {
+		t.Fatalf("ConflictingRefs() = %#v, want %#v", got, want)
+	}
+}
+
+func TestDeletionPlanUsesObservedObjectIDs(t *testing.T) {
+	target := map[string]string{"refs/heads/legacy": "target-object"}
+	want := []string{
+		"push", "--atomic", "--porcelain",
+		"--force-with-lease=refs/heads/legacy:target-object",
+		"target", ":refs/heads/legacy",
+	}
+	if got := deletionPlan([]string{"refs/heads/legacy"}, target); !slices.Equal(got, want) {
+		t.Fatalf("deletionPlan() = %#v, want %#v", got, want)
 	}
 }
 

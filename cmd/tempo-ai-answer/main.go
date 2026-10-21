@@ -228,6 +228,10 @@ func (a *app) execute(ctx context.Context, name string) (runErr error) {
 	}
 	fmt.Fprintf(a.output(), "[就绪] 平台已登录：%s\n", me.Name)
 	r.me = me
+	if name == "panel" || name == "run" {
+		stopSessionMonitor := r.startPlatformSessionMonitor(ctx)
+		defer stopSessionMonitor()
+	}
 	if name == "login" {
 		return r.loginAI(ctx, a.enter)
 	}

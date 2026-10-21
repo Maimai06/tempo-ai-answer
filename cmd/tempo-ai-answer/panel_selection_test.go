@@ -1,12 +1,26 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Maimai06/tempo-ai-answer/internal/core"
 	"github.com/Maimai06/tempo-ai-answer/internal/dashboard"
+	"github.com/Maimai06/tempo-ai-answer/internal/logger"
 	"github.com/Maimai06/tempo-ai-answer/internal/platform"
 )
+
+type catalogFailurePage struct{}
+
+func (catalogFailurePage) Eval(_ context.Context, _ string, out any) error {
+	return json.Unmarshal([]byte(`{"status":200,"json":{"success":false,"message":"实践环境尚未启动"}}`), out)
+}
+
+func (catalogFailurePage) Navigate(context.Context, string) error { return nil }
 
 func panelCatalogFixture() (*panelCatalog, *runtimeState) {
 	r := &runtimeState{plat: &platform.Client{ClassroomID: "configured"}}
@@ -51,5 +65,33 @@ func TestPanelPlanChecksCatalogMembershipAndMode(t *testing.T) {
 	plan, _, err = catalog.plan(trial, r)
 	if err != nil || len(plan) != 1 || len(plan[0].steps) != 1 || !plan[0].steps[0].Finished {
 		t.Fatalf("single-step trial should permit a completed lesson: %+v, %v", plan, err)
+	}
+}
+
+func TestPanelCatalogLogsPlatformFailurePrivately(t *testing.T) {
+	dir := t.TempDir()
+	l, err := logger.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalog := newPanelCatalog(&runtimeState{
+		log: l,
+		plat: &platform.Client{
+			Page:    catalogFailurePage{},
+			BaseURL: "https://example.invalid/tempo-talents/",
+		},
+	})
+	if _, err = catalog.listClassrooms(context.Background()); err == nil {
+		t.Fatal("expected classroom API failure")
+	}
+	if err = l.Close(); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "tempo.log"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "HTTP 200") || !strings.Contains(string(data), "平台消息：实践环境尚未启动") {
+		t.Fatalf("private log is missing the platform diagnostic: %s", data)
 	}
 }

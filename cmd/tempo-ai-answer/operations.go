@@ -35,6 +35,36 @@ type runtimeState struct {
 	classroom     string
 }
 
+const platformSessionCheckInterval = 5 * time.Minute
+
+func (r *runtimeState) startPlatformSessionMonitor(parent context.Context) func() {
+	ctx, cancel := context.WithCancel(parent)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		ticker := time.NewTicker(platformSessionCheckInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if err := r.plat.CheckSession(ctx); err != nil {
+					if ctx.Err() != nil {
+						return
+					}
+					r.log.RecordError(fmt.Errorf("定时检查 Tempo 登录态失败: %w", err))
+					r.sink.Emit(core.Event{Kind: "warn", Text: "Tempo 登录态检查失败；程序会在下次检查或平台请求时重试"})
+				}
+			}
+		}
+	}()
+	return func() {
+		cancel()
+		<-done
+	}
+}
+
 func (r *runtimeState) aiTest(ctx context.Context) error {
 	cfg, session, sink := r.cfg, r.session, r.sink
 	if cfg.AI.Provider == "openai_compatible" {

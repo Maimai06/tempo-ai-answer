@@ -71,6 +71,7 @@ func (c *panelCatalog) listClassrooms(ctx context.Context) ([]core.Classroom, er
 	defer c.mu.Unlock()
 	classrooms, err := c.client.plat.ListClassrooms(ctx)
 	if err != nil {
+		c.logCatalogError("读取课堂清单失败", err)
 		return nil, err
 	}
 	c.classroom = make(map[string]core.Classroom, len(classrooms))
@@ -101,6 +102,7 @@ func (c *panelCatalog) listCourses(ctx context.Context, classroomID string) ([]d
 	courses, err := c.client.plat.ListCourses(ctx, "practice")
 	c.client.plat.ClassroomID = previous
 	if err != nil {
+		c.logCatalogError("读取实验清单失败", err)
 		return nil, err
 	}
 	byID := make(map[string]core.Course, len(courses))
@@ -134,6 +136,7 @@ func (c *panelCatalog) listSteps(ctx context.Context, classroomID, courseID stri
 	steps, err := c.client.plat.ListSteps(ctx, course.Identifier())
 	c.client.plat.ClassroomID = previous
 	if err != nil {
+		c.logCatalogError("读取关卡清单失败", err)
 		return nil, err
 	}
 	if len(steps) == 0 {
@@ -155,6 +158,13 @@ func (c *panelCatalog) listSteps(ctx context.Context, classroomID, courseID stri
 	}
 	c.steps[classroomID][courseID] = steps
 	return options, nil
+}
+
+func (c *panelCatalog) logCatalogError(operation string, err error) {
+	if err == nil || c.client.log == nil {
+		return
+	}
+	c.client.log.RecordError(fmt.Errorf("%s: %w", operation, err))
 }
 
 func (c *panelCatalog) plan(selection dashboard.RunSelection, r *runtimeState) ([]coursePlan, core.Classroom, error) {

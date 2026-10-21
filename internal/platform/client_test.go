@@ -35,6 +35,118 @@ func (p *fakePage) Eval(_ context.Context, js string, out any) error {
 func resp(data string) response {
 	return response{Status: 200, JSON: &envelope{Success: true, Data: json.RawMessage(data)}}
 }
+
+type sessionExpiryPage struct {
+	classroomCalls int
+	userCalls      int
+	navigations    int
+}
+
+type sessionCheckExpiryPage struct {
+	userCalls   int
+	navigations int
+}
+
+func (p *sessionCheckExpiryPage) Navigate(context.Context, string) error {
+	p.navigations++
+	return nil
+}
+
+func (p *sessionCheckExpiryPage) Eval(_ context.Context, js string, out any) error {
+	if !strings.Contains(js, "/tt-common/user/current") {
+		return errors.New("unexpected page evaluation")
+	}
+	p.userCalls++
+	if p.userCalls == 1 {
+		return json.Unmarshal([]byte(`{"status":200,"json":{"success":false,"message":"登录已过期，请重新登录"}}`), out)
+	}
+	return json.Unmarshal([]byte(`{"status":200,"json":{"success":true,"data":{"name":"测试用户"}}}`), out)
+}
+
+func (p *sessionExpiryPage) Navigate(context.Context, string) error {
+	p.navigations++
+	return nil
+}
+
+func (p *sessionExpiryPage) Eval(_ context.Context, js string, out any) error {
+	var raw string
+	switch {
+	case strings.Contains(js, "/tt-classroom/list"):
+		p.classroomCalls++
+		if p.classroomCalls == 1 {
+			raw = `{"status":200,"json":{"success":false,"message":"登录已过期，请重新登录"}}`
+		} else {
+			raw = `{"status":200,"json":{"success":true,"data":{"classroomListInfo":{"rows":[]}}}}`
+		}
+	case strings.Contains(js, "/tt-common/user/current"):
+		p.userCalls++
+		raw = `{"status":200,"json":{"success":true,"data":{"name":"测试用户"}}}`
+	default:
+		return errors.New("unexpected page evaluation")
+	}
+	return json.Unmarshal([]byte(raw), out)
+}
+
+func TestListClassroomsReloginsAfterExpiredSessionResponse(t *testing.T) {
+	p := &sessionExpiryPage{}
+	logs := []string{}
+	c := Client{
+		Page:    p,
+		BaseURL: "https://example.invalid/tempo-talents/",
+		Log:     func(message string) { logs = append(logs, message) },
+	}
+	classrooms, err := c.ListClassrooms(context.Background())
+	if err != nil || len(classrooms) != 0 {
+		t.Fatalf("classrooms: %+v, err: %v", classrooms, err)
+	}
+	if p.classroomCalls != 2 || p.navigations != 1 || p.userCalls != 1 {
+		t.Fatalf("requests=%d navigations=%d current-user=%d", p.classroomCalls, p.navigations, p.userCalls)
+	}
+	if len(logs) != 2 || !strings.Contains(logs[0], "正在重新登录") || !strings.Contains(logs[1], "已恢复") {
+		t.Fatalf("missing relogin notice: %v", logs)
+	}
+}
+
+func TestRequiresLoginOnlyForExplicitExpiredSessionMessages(t *testing.T) {
+	for _, message := range []string{"登录已过期，请重新登录", "登陆失效", "会话过期", "Not logged in", "Session expired"} {
+		if !requiresLogin(response{Status: 200, JSON: &envelope{Success: false, Message: message}}) {
+			t.Errorf("did not recognize expired-session message %q", message)
+		}
+	}
+	for _, message := range []string{"实践环境尚未启动", "请求参数无效", ""} {
+		if requiresLogin(response{Status: 200, JSON: &envelope{Success: false, Message: message}}) {
+			t.Errorf("treated ordinary business failure as expired session: %q", message)
+		}
+	}
+}
+
+func TestCheckSessionReloginsWhenSessionExpires(t *testing.T) {
+	p := &sessionCheckExpiryPage{}
+	logs := []string{}
+	c := Client{
+		Page:    p,
+		BaseURL: "https://example.invalid/tempo-talents/",
+		Log:     func(message string) { logs = append(logs, message) },
+	}
+	if err := c.CheckSession(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if p.userCalls != 2 || p.navigations != 1 {
+		t.Fatalf("current-user calls=%d navigations=%d", p.userCalls, p.navigations)
+	}
+	if len(logs) != 2 || !strings.Contains(logs[0], "正在重新登录") || !strings.Contains(logs[1], "已恢复") {
+		t.Fatalf("unexpected login monitor messages: %v", logs)
+	}
+}
+
+func TestCheckSessionDoesNotReloginOnTransportError(t *testing.T) {
+	p := &fakePage{err: errors.New("network unavailable")}
+	c := Client{Page: p, BaseURL: "https://example.invalid/tempo-talents/"}
+	if err := c.CheckSession(context.Background()); err == nil {
+		t.Fatal("expected transport error")
+	}
+}
+
 func TestGatewayProtocol(t *testing.T) {
 	p := &fakePage{responses: []response{resp(`{"rows":[{"stepId":123,"name":"fixture","sequence":1}]}`)}}
 	c := Client{Page: p, BaseURL: "https://example.invalid/tempo-talents/", ClassroomID: "班 1"}
@@ -98,6 +210,9 @@ func TestAPIErrorKeepsPlatformMessageForPrivateLogs(t *testing.T) {
 	}
 	if strings.Contains(err.Error(), "实践环境尚未启动") || !strings.Contains(detail.LogDetail(), "实践环境尚未启动") {
 		t.Fatalf("platform message should be private-log-only: public=%q detail=%q", err, detail.LogDetail())
+	}
+	if len(p.calls) != 1 {
+		t.Fatalf("ordinary business error should not trigger login or retry, got %d requests", len(p.calls))
 	}
 }
 

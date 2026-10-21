@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Maimai06/tempo-ai-answer/internal/core"
@@ -23,6 +24,7 @@ type Page interface {
 
 // Client 持有页面会话、账号与运行期课堂，不使用全局配置。
 type Client struct {
+	mu                                       sync.Mutex
 	Page                                     Page
 	BaseURL, Username, Password, ClassroomID string
 	Log                                      func(string)
@@ -59,6 +61,25 @@ func (e *apiFailure) LogDetail() string {
 		return e.Error()
 	}
 	return e.Error() + "；平台消息：" + message
+}
+
+func requiresLogin(r response) bool {
+	if r.Status == 401 || r.Status == 302 || r.HTML && (strings.Contains(strings.ToLower(r.URL), "login") || r.URL != "" && !strings.Contains(r.URL, gateway)) {
+		return true
+	}
+	if r.JSON == nil || r.JSON.Success {
+		return false
+	}
+	message := strings.ToLower(strings.Join(strings.Fields(r.JSON.Message), ""))
+	for _, marker := range []string{
+		"登录已过期", "登陆已过期", "登录过期", "登陆过期", "登录失效", "登陆失效", "会话已过期", "会话过期", "未登录",
+		"sessionexpired", "sessionhasexpired", "notloggedin",
+	} {
+		if strings.Contains(message, marker) {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *Client) fetch(ctx context.Context, path, method string, data url.Values) (response, error) {
@@ -99,6 +120,12 @@ func (c *Client) current(ctx context.Context) (core.User, bool) {
 
 // Login 复用持久 profile，验证码交由可见浏览器中的用户完成。
 func (c *Client) Login(ctx context.Context) (core.User, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.login(ctx)
+}
+
+func (c *Client) login(ctx context.Context) (core.User, error) {
 	ctx, cancel := context.WithTimeout(ctx, 150*time.Second)
 	defer cancel()
 	if e := c.Page.Navigate(ctx, c.BaseURL); e != nil {
@@ -129,8 +156,56 @@ func (c *Client) Login(ctx context.Context) (core.User, error) {
 	}
 }
 
+// CheckSession 定时检查当前平台用户；只在用户态缺失或明确失效时重新登录。
+func (c *Client) CheckSession(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	r, err := c.fetch(ctx, gateway+"/tt-common/user/current", "GET", nil)
+	if err != nil {
+		return fmt.Errorf("检查平台登录态失败: %w", err)
+	}
+	if r.Status == 200 && r.JSON != nil && r.JSON.Success {
+		if len(r.JSON.Data) == 0 || string(r.JSON.Data) == "null" {
+			return c.relogin(ctx)
+		}
+		var user core.User
+		if err := json.Unmarshal(r.JSON.Data, &user); err != nil {
+			return fmt.Errorf("平台登录态检查数据格式错误: %w", err)
+		}
+		if strings.TrimSpace(user.Name) == "" {
+			return errors.New("平台登录态检查未返回有效用户")
+		}
+		return nil
+	}
+	if requiresLogin(r) || r.Status == 200 && r.JSON != nil && !r.JSON.Success {
+		return c.relogin(ctx)
+	}
+	return fmt.Errorf("平台登录态检查异常（HTTP %d）", r.Status)
+}
+
+func (c *Client) relogin(ctx context.Context) error {
+	if c.Log != nil {
+		c.Log("检测到平台登录态已失效，正在重新登录")
+	}
+	if _, err := c.login(ctx); err != nil {
+		return fmt.Errorf("平台登录态失效，重新登录失败: %w", err)
+	}
+	if c.Log != nil {
+		c.Log("平台登录态已恢复")
+	}
+	return nil
+}
+
 // API 检查网关响应，最多重登一次；不在错误中回显响应与凭据。
 func (c *Client) API(ctx context.Context, path, method string, data url.Values, out any) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	relogged := false
 	for attempt := 0; attempt < 3; attempt++ {
 		r, e := c.fetch(ctx, gateway+path, method, data)
@@ -143,10 +218,9 @@ func (c *Client) API(ctx context.Context, path, method string, data url.Values, 
 			}
 			continue
 		}
-		login := r.Status == 401 || r.Status == 302 || r.HTML && (strings.Contains(strings.ToLower(r.URL), "login") || r.URL != "" && !strings.Contains(r.URL, gateway))
-		if login && !relogged {
+		if requiresLogin(r) && !relogged {
 			relogged = true
-			if _, e = c.Login(ctx); e != nil {
+			if e = c.relogin(ctx); e != nil {
 				return e
 			}
 			continue

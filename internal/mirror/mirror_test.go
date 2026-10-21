@@ -80,3 +80,36 @@ func TestInvalid(t *testing.T) {
 		t.Fatal("empty URLs")
 	}
 }
+
+func TestSanitizeGitDiagnostic(t *testing.T) {
+	t.Setenv("GITHUB_TOKEN", "github-secret")
+	t.Setenv("CNB_TOKEN", "cnb-secret")
+	input := "remote: auth failed https://user:password@example.invalid/path github-secret cnb-secret"
+	got := sanitizeGitDiagnostic(input)
+	for _, secret := range []string{"github-secret", "cnb-secret", "user:password"} {
+		if strings.Contains(got, secret) {
+			t.Fatalf("diagnostic leaked %q: %s", secret, got)
+		}
+	}
+	for _, safe := range []string{"auth failed", "https://[redacted]@example.invalid/path", "[redacted]"} {
+		if !strings.Contains(got, safe) {
+			t.Fatalf("diagnostic lost %q: %s", safe, got)
+		}
+	}
+}
+
+func TestSanitizeGitDiagnosticLimitsLength(t *testing.T) {
+	got := sanitizeGitDiagnostic(strings.Repeat("x", 1001))
+	if len([]rune(got)) != 1000 {
+		t.Fatalf("diagnostic length = %d, want 1000", len([]rune(got)))
+	}
+}
+
+func TestSanitizeGitFailureIncludesBothStreams(t *testing.T) {
+	got := sanitizeGitFailure([]byte("fatal: push failed"), []byte("! [remote rejected] main (protected branch)"))
+	for _, want := range []string{"fatal: push failed", "remote rejected", "protected branch"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("diagnostic lost %q: %s", want, got)
+		}
+	}
+}

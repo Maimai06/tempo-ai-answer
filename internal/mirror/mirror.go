@@ -7,6 +7,7 @@ import (
 	"maps"
 	"os"
 	"os/exec"
+	"regexp"
 	"sort"
 	"strings"
 )
@@ -20,13 +21,39 @@ type Options struct {
 func git(ctx context.Context, dir string, args ...string) (string, error) {
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = dir
-	// Git 输出中可能含凭据；错误只报告子命令和退出码。
+	// Git 输出中可能含凭据；先脱敏再附加诊断信息。
 	out, err := cmd.Output()
 	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			if diagnostic := sanitizeGitFailure(exitErr.Stderr, out); diagnostic != "" {
+				return "", fmt.Errorf("git %s 失败: %w: %s", args[0], err, diagnostic)
+			}
+		}
 		return "", fmt.Errorf("git %s 失败: %w", args[0], err)
 	}
 	return strings.TrimSpace(string(out)), nil
 }
+
+var credentialURL = regexp.MustCompile(`(?i)(https?://)[^\s/@]+@`)
+
+func sanitizeGitFailure(stderr, stdout []byte) string {
+	return sanitizeGitDiagnostic(string(stderr) + "\n" + string(stdout))
+}
+
+func sanitizeGitDiagnostic(diagnostic string) string {
+	diagnostic = strings.Join(strings.Fields(diagnostic), " ")
+	for _, name := range []string{"GITHUB_TOKEN", "CNB_TOKEN"} {
+		if token := os.Getenv(name); token != "" {
+			diagnostic = strings.ReplaceAll(diagnostic, token, "[redacted]")
+		}
+	}
+	diagnostic = credentialURL.ReplaceAllString(diagnostic, `${1}[redacted]@`)
+	if runes := []rune(diagnostic); len(runes) > 1000 {
+		diagnostic = string(runes[:1000])
+	}
+	return diagnostic
+}
+
 func refs(text string) map[string]string {
 	out := map[string]string{}
 	for _, line := range strings.Split(text, "\n") {

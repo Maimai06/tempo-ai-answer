@@ -26,7 +26,7 @@ PR 不导入密钥；只有源仓库中有写权限的成员可通过 push/tag �
 
 ## 构建与验收
 
-`go run ./tools/build` 使用 `CGO_ENABLED=0`，生成 Windows x64、macOS x64/arm64、Linux x64 的轻量 ZIP、构建清单和 SHA256SUMS。记录 commit、Go 版本与模块摘要。当前产物标为 executable-only，需要本机浏览器，不等于 PRD 含浏览器完整包。
+`go run ./tools/build` 使用 `CGO_ENABLED=0`，生成 Windows x64、macOS x64/arm64、Linux x64 的轻量 ZIP、构建清单和 SHA256SUMS。ZIP 包含可执行文件、README、项目许可、第三方许可和 `manifest.json`，不单独附带配置示例或 macOS 启动脚本；交互首次运行会通过内嵌模板创建 `config.json`。清单记录 commit、Go 版本与模块摘要。当前产物标为 executable-only，需要本机浏览器，不等于 PRD 含浏览器完整包。
 
 完整包必须锁定浏览器来源、版本、摘要，携带许可证，并在支持的干净系统做断网启动/CDP 测试，验证 Linux 浏览器依赖和 macOS 隔离属性；未满足时不能发布为完整可用 v2。CNB 的 Linux 测试和交叉编译不代表各目标系统的原生运行、签名或公证验收。各目标系统运行及真实平台、DeepSeek 登录仍需单独验收。
 

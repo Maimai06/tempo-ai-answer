@@ -76,13 +76,10 @@ func main() {
 		add(name, b, 0755)
 		add("manifest.json", mb, 0644)
 		add("THIRD_PARTY_NOTICES.txt", licenses, 0644)
-		for _, p := range []string{"LICENSE", "README.md", "config.example.json"} {
+		for _, p := range []string{"LICENSE", "README.md"} {
 			b, e := os.ReadFile(p)
 			must(e)
 			add(p, b, 0644)
-		}
-		if target[0] == "darwin" {
-			add("启动.command", []byte("#!/bin/sh\ncd -- \"$(dirname -- \"$0\")\" || exit 1\n./tempo-ai-answer\nstatus=$?\nprintf '\\n按回车关闭窗口…'\nread -r ignored\nexit \"$status\"\n"), 0755)
 		}
 		must(zw.Close())
 		must(file.Close())

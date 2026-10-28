@@ -6,203 +6,273 @@
 <meta name="selection-key" content="__SELECTION_KEY__">
 <title>Tempo AI 答题范围</title>
 <style>
-  :root { color-scheme: light; font: 14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif; color: #1d3033; background: #f3f7f6; }
+  :root {
+    color-scheme: light;
+    --page: #f3f5f2;
+    --surface: #ffffff;
+    --surface-muted: #eef1ed;
+    --ink: #202a26;
+    --muted: #65716a;
+    --line: #d7ddd8;
+    --line-soft: #e7ebe7;
+    --accent: #216b55;
+    --accent-strong: #174d3f;
+    --accent-soft: #e8f1ec;
+    --blue: #356b8a;
+    --amber: #936112;
+    --red: #a64038;
+    font: 14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;
+    color: var(--ink);
+    background: var(--page);
+  }
   * { box-sizing: border-box; }
-  body { margin: 0; min-width: 320px; min-height: 100vh; color: #1d3033; }
-  button,input,select { font: inherit; }
-  button { min-height: 36px; padding: 7px 12px; border: 1px solid #bacac7; border-radius: 5px; background: #fff; color: #203639; cursor: pointer; transition: background .15s,border-color .15s; }
-  button:hover:not(:disabled) { background: #edf4f2; border-color: #78918b; }
-  button:disabled { cursor: not-allowed; opacity: .48; }
-  .topbar { position: sticky; top: 0; z-index: 3; min-height: 64px; display: flex; align-items: center; gap: 24px; padding: 9px max(22px,calc((100vw - 1480px)/2)); color: #f4fbf9; background: #153b3d; border-bottom: 1px solid #285352; }
-  .brand { display: flex; align-items: center; gap: 10px; min-width: 190px; font-size: 15px; font-weight: 650; }
-  .brand-mark { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 6px; color: #153b3d; background: #a8d9c5; font-size: 12px; font-weight: 750; }
-  .app-tabs { display: flex; align-items: center; gap: 4px; }
-  .app-tab { min-height: 36px; padding: 7px 12px; border-color: transparent; color: #c2d8d3; background: transparent; }
-  .app-tab:hover:not(:disabled) { color: #fff; background: #244b4b; border-color: #315d5b; }
-  .app-tab.active { color: #fff; background: #285554; border-color: #477773; }
-  .tab-state { margin-left: 5px; color: #a9d7c5; font-size: 11px; }
-  .login-state { display: flex; align-items: center; gap: 12px; margin-left: auto; color: #c8dad7; font-size: 12px; white-space: nowrap; }
-  .login-item { display: inline-flex; align-items: center; gap: 6px; }
-  .login-dot { width: 7px; height: 7px; border-radius: 50%; background: #76c99a; }
-  main { width: min(1480px,100%); margin: 0 auto; padding: 22px 22px 118px; }
+  body { min-width: 320px; min-height: 100vh; margin: 0; color: var(--ink); background: var(--page); }
+  button,input { font: inherit; }
+  button { min-height: 36px; padding: 6px 11px; border: 1px solid var(--line); border-radius: 3px; color: var(--ink); background: var(--surface); cursor: pointer; transition: background .16s,border-color .16s,color .16s; }
+  button:hover:not(:disabled) { border-color: #9daaa1; background: var(--surface-muted); }
+  button:disabled { cursor: not-allowed; opacity: .5; }
+  button:focus-visible,input:focus-visible,a:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+  .skip-link { position: fixed; z-index: 10; top: 6px; left: 8px; transform: translateY(-150%); padding: 8px 10px; color: #fff; background: #202a26; }
+  .skip-link:focus { transform: translateY(0); }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+  .topbar { position: sticky; top: 0; z-index: 3; min-height: 58px; display: flex; align-items: center; gap: 22px; padding: 7px max(22px,calc((100vw - 1600px)/2)); border-bottom: 1px solid #293831; color: #f5f7f4; background: #202a26; }
+  .brand { min-width: 190px; display: flex; align-items: center; gap: 10px; color: #f5f7f4; font-size: 14px; font-weight: 650; }
+  .brand-mark { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 3px; color: #17241e; background: #a8d1b8; font-size: 11px; font-weight: 750; }
+  .run-indicator { display: inline-flex; align-items: center; gap: 7px; color: #d2dbd4; font-size: 11px; white-space: nowrap; }
+  .run-indicator i { width: 7px; height: 7px; border-radius: 50%; background: #a8d1b8; }
+  .header-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+  #continue-run { border-color: #547764; color: #fff; background: #315743; }
+  #exit-app { border-color: #74534b; color: #f3d6d0; background: #43302c; }
   [hidden] { display: none !important; }
-  .steps-head { display: flex; align-items: center; gap: 10px; margin: 0 0 20px; color: #627572; }
-  .steps-head span { display: flex; align-items: center; gap: 8px; }
-  .step-no { width: 23px; height: 23px; display: inline-grid; place-items: center; border: 1px solid #aabbb7; border-radius: 50%; color: #405d57; background: #fff; font-size: 12px; }
-  .steps-head .step-divider { width: 26px; height: 1px; background: #cbd8d5; }
-  .layout { display: grid; grid-template-columns: minmax(205px,.78fr) minmax(280px,1.08fr) minmax(360px,1.44fr); gap: 22px; align-items: start; }
-  .pane { min-width: 0; }
-  .pane + .pane { padding-left: 20px; border-left: 1px solid #d7e1de; }
-  .pane-title { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 0 0 10px; border-bottom: 1px solid #d3dfdc; }
-  .pane-title h1,.pane-title h2 { margin: 0; font-size: 16px; line-height: 1.35; color: #20393a; }
-  .pane-title small,.muted { color: #687a77; }
-  .class-list,.course-list,.selected-list { display: flex; flex-direction: column; gap: 2px; padding-top: 10px; }
-  .choice-row { display: flex; align-items: flex-start; gap: 10px; min-height: 43px; padding: 9px 8px; border-bottom: 1px solid #e2eae7; cursor: pointer; }
-  .choice-row:hover { background: #edf5f2; }
-  .choice-row:has(input:checked) { background: #eaf4ef; }
-  .choice-row input { flex: none; width: 16px; height: 16px; margin: 2px 0 0; accent-color: #14765f; }
+
+  #workspace.workspace-layout { width: min(1600px,100%); height: calc(100vh - 128px); min-height: 540px; display: grid; grid-template-columns: minmax(0,1.1fr) minmax(0,.9fr); margin: 0 auto; padding: 0 22px 14px; }
+  #scope-view.scope-layout { min-width: 0; min-height: 0; display: grid; grid-template-columns: minmax(0,1.12fr) minmax(245px,.88fr); grid-template-rows: minmax(0,1fr) auto; gap: 0; padding: 0 16px 0 0; }
+  #scope-view .selection-column { min-width: 0; min-height: 0; display: grid; grid-template-rows: minmax(115px,.72fr) minmax(0,1.28fr); border-right: 1px solid var(--line); }
+  #scope-view .pane { min-width: 0; min-height: 0; display: flex; flex-direction: column; padding-top: 16px; }
+  #scope-view .classroom-rail { padding: 16px 12px 10px 0; border-bottom: 1px solid var(--line); }
+  #scope-view .course-pane { padding: 12px 12px 0 0; }
+  #scope-view .detail-rail { padding-left: 16px; }
+  #scope-view .pane-title { display: flex; align-items: center; justify-content: flex-start; gap: 9px; padding: 0 0 10px; border: 0; border-bottom: 1px solid var(--line); }
+  #scope-view .pane-title h1,#scope-view .pane-title h2 { margin: 0; color: var(--ink); font-size: 14px; font-weight: 650; }
+  #scope-view .pane-title small { display: block; margin-top: 1px; color: var(--muted); font-size: 11px; }
+  .step-no { width: 25px; height: 25px; flex: none; border: 1px solid #bcc7bf; border-radius: 3px; color: #355544; background: #f8faf8; font: 600 10px/23px ui-monospace,SFMono-Regular,Menlo,monospace; text-align: center; }
+  .class-list,.course-list,.selected-list { min-height: 0; display: flex; flex-direction: column; gap: 0; padding: 7px 0 0; overflow: auto; }
+  .class-list,.course-list { flex: 1; }
+  .selected-list { flex: 1; }
+  .choice-row { min-height: 42px; display: flex; align-items: center; gap: 9px; margin-right: 3px; padding: 7px 7px; border: 0; border-bottom: 1px solid var(--line-soft); border-left: 2px solid transparent; cursor: pointer; transition: background .14s,border-color .14s; }
+  .choice-row:hover { background: #eef2ee; }
+  .choice-row:has(input:checked) { border-left-color: var(--accent); background: var(--accent-soft); }
+  .choice-row input { width: 16px; height: 16px; flex: none; margin: 0; accent-color: var(--accent); }
   .choice-main { min-width: 0; flex: 1; }
-  .choice-name { display: block; color: #233a3b; overflow-wrap: anywhere; }
-  .choice-meta { display: block; margin-top: 2px; color: #6b7b79; font-size: 12px; }
-  .tools { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin: 10px 0 4px; }
-  .tools button { min-height: 31px; padding: 4px 9px; font-size: 12px; }
-  .tools input[type=search] { flex: 1; min-width: 120px; height: 34px; padding: 5px 9px; border: 1px solid #c3d1ce; border-radius: 4px; background: #fff; }
-  .tools input[type=search]:focus { outline: 2px solid #8bbfae; outline-offset: 1px; }
-  .range-note { margin: 8px 0 0; color: #667875; font-size: 12px; }
-  .empty { padding: 18px 8px; color: #738480; }
-  .course-group { margin: 0 0 14px; padding: 0 0 12px; border-bottom: 1px solid #d7e1de; }
-  .course-group-head { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 7px; }
-  .course-group-head h3 { flex: 1; min-width: 0; margin: 0; font-size: 14px; font-weight: 620; overflow-wrap: anywhere; }
-  .course-group-head h3 small { display: block; margin-top: 2px; color: #6b7b79; font-weight: 400; }
-  .course-group-head button { min-height: 28px; padding: 3px 7px; font-size: 11px; }
+  .choice-name { display: block; color: #283630; overflow-wrap: anywhere; }
+  .choice-meta { display: block; margin-top: 1px; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+  .course-toolbar { flex: none; }
+  .search-field { display: block; margin: 10px 0 4px; }
+  .search-field input { width: 100%; height: 35px; padding: 6px 9px; border: 1px solid #cbd3cd; border-radius: 3px; color: var(--ink); background: var(--surface); }
+  .search-field input::placeholder { color: #7a857e; }
+  .empty { padding: 16px 8px; color: #707c74; font-style: normal; }
+  .course-group { margin: 0; padding: 10px 0 12px; border-bottom: 1px solid var(--line); }
+  .course-group-head { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 4px; }
+  .course-group-head h3 { min-width: 0; flex: 1; margin: 0; color: #27342d; font-size: 12px; font-weight: 650; overflow-wrap: anywhere; }
+  .course-group-head h3 small { display: block; margin-top: 1px; color: var(--muted); font-size: 10.5px; font-weight: 400; }
+  .course-group-head button,.tools button { min-height: 28px; padding: 3px 5px; border: 0; border-radius: 0; color: var(--blue); background: transparent; font-size: 11px; text-align: right; }
+  .course-group-head button:hover:not(:disabled),.tools button:hover:not(:disabled) { border-color: transparent; color: #234e66; background: #edf2f3; }
+  .tools { display: flex; justify-content: flex-end; margin: 0 0 2px; }
   .step-list { display: flex; flex-direction: column; }
-  .step-list .choice-row { min-height: 39px; padding: 7px 6px; }
-  .status { flex: none; margin-left: auto; padding-left: 8px; font-size: 11px; color: #37735f; white-space: nowrap; }
-  .status.done { color: #7a8986; }
-  .message { min-height: 22px; margin: 10px 0 0; color: #536965; }
-  .message.error { color: #a3443c; }
-  .message.ok { color: #18745e; }
-  .mode-section { margin-top: 22px; }
-  .modebar { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 0 0; }
-  .mode-option { position: relative; display: flex; flex: 1 1 190px; align-items: flex-start; gap: 9px; padding: 10px 11px; border: 1px solid #cfdbd8; border-radius: 5px; background: #fff; cursor: pointer; }
-  .mode-option:has(input:checked) { border-color: #398775; box-shadow: inset 0 0 0 1px #398775; background: #edf6f2; }
-  .mode-option input { margin: 2px 0 0; accent-color: #14765f; }
-  .mode-option strong { display: block; font-size: 13px; }
-  .mode-option small { display: block; margin-top: 2px; color: #657875; font-size: 12px; }
-  .footer { position: fixed; z-index: 2; right: 0; bottom: 0; left: 0; display: flex; justify-content: center; border-top: 1px solid #cedbd7; background: rgba(250,252,251,.97); backdrop-filter: blur(8px); }
-  .footer-inner { width: min(1480px,100%); min-height: 70px; display: flex; align-items: center; gap: 12px; padding: 10px 22px; }
-  #summary-count { color: #344c49; white-space: nowrap; }
-  #summary-count strong { color: #14765f; }
-  #status-line { flex: 1; color: #667875; }
-  #start,#confirm-start { min-width: 154px; border-color: #126a59; background: #147b67; color: white; font-weight: 620; }
-  #start:hover:not(:disabled),#confirm-start:hover:not(:disabled) { background: #0e6656; }
-  #cancel { min-width: 86px; }
-  #continue-run { border-color: #8cb9aa; color: #f4fbf9; background: #286d5c; }
-  #exit-app { border-color: #d7b4a7; color: #7b352c; background: #fff8f5; }
-  dialog { width: min(620px,calc(100vw - 28px)); max-height: min(80vh,720px); padding: 0; border: 1px solid #a8bbb6; border-radius: 7px; color: #203133; box-shadow: 0 18px 60px #102d2b40; }
-  dialog::backdrop { background: #102d2ba8; }
-  .dialog-head { padding: 16px 20px; border-bottom: 1px solid #d5dfdc; }
-  .dialog-head h2 { margin: 0; font-size: 17px; }
-  .dialog-body { max-height: 55vh; overflow: auto; padding: 14px 20px; }
+  .step-list .choice-row { min-height: 36px; padding: 5px 6px; }
+  .step-list .choice-name { font-size: 11px; }
+  .status { flex: none; margin-left: auto; padding-left: 4px; color: #296c50; font-size: 10px; white-space: nowrap; }
+  .status.done { color: #737d76; }
+  .mode-section { flex: none; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+  .mode-heading { padding: 0 0 5px; }
+  .mode-heading h2 { margin: 0; color: var(--ink); font-size: 13px; font-weight: 650; }
+  #scope-view .modebar { display: block; padding: 0; overflow: visible; border: 0; border-radius: 0; background: transparent; }
+  #scope-view .mode-option { min-height: 48px; display: flex; align-items: flex-start; gap: 8px; margin: 0; padding: 7px 6px; border: 0; border-bottom: 1px solid var(--line-soft); border-left: 2px solid transparent; border-radius: 0; background: transparent; cursor: pointer; }
+  #scope-view .mode-option:has(input:checked) { border-color: var(--line-soft); border-left-color: var(--accent); box-shadow: none; background: var(--accent-soft); }
+  #scope-view .mode-option input { flex: none; margin: 2px 0 0; accent-color: var(--accent); }
+  #scope-view .mode-option strong { display: block; color: #283630; font-size: 11.5px; }
+  #scope-view .mode-option small { display: block; margin-top: 1px; color: var(--muted); font-size: 10.5px; line-height: 1.35; }
+  #scope-view .message { grid-column: 1 / -1; min-height: 0; margin: 0; padding-top: 5px; color: #4c5a51; font-size: 12px; }
+  #scope-view .message.error { color: var(--red); }
+  #scope-view .message.ok { color: var(--accent-strong); }
+
+  .footer { position: fixed; z-index: 2; right: 0; bottom: 0; left: 0; display: flex; justify-content: center; border-top: 1px solid #cbd3cc; background: #fbfcfa; }
+  .footer-inner { width: min(1600px,100%); min-height: 70px; display: flex; align-items: center; gap: 13px; padding: 9px 22px; }
+  #summary-count { color: #3d4a42; white-space: nowrap; }
+  #summary-count strong { color: var(--accent-strong); font-variant-numeric: tabular-nums; }
+  #status-line { min-width: 0; flex: 1; color: var(--muted); font-size: 12px; }
+  #start,#confirm-start { min-width: 150px; border-color: var(--accent-strong); border-radius: 3px; color: #fff; background: var(--accent-strong); font-weight: 620; }
+  #start:hover:not(:disabled),#confirm-start:hover:not(:disabled) { border-color: #103a30; background: #103a30; }
+  #cancel { min-width: 74px; }
+  dialog { width: min(620px,calc(100vw - 28px)); max-height: min(80vh,720px); padding: 0; border: 1px solid #aab6ad; border-radius: 4px; color: var(--ink); background: var(--surface); box-shadow: 0 18px 55px #18251e35; }
+  dialog::backdrop { background: #18241e9c; }
+  .dialog-head { padding: 15px 18px; border-bottom: 1px solid var(--line); }
+  .dialog-head h2 { margin: 0; font-size: 15px; }
+  .dialog-body { max-height: 55vh; overflow: auto; padding: 14px 18px; }
   .dialog-body p { margin: 4px 0 10px; }
   .dialog-body ul { margin: 6px 0; padding-left: 22px; }
-  .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px; border-top: 1px solid #d5dfdc; }
-  .monitor-head { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 4px 0 18px; border-bottom: 1px solid #d5dfdc; }
-  .eyebrow { margin: 0 0 4px; color: #55716b; font-size: 11px; font-weight: 700; text-transform: uppercase; }
-  .monitor-head h1 { margin: 0; color: #20393a; font-size: 22px; line-height: 1.25; }
-  .monitor-head p:last-child { margin: 5px 0 0; color: #677975; }
-  .progress-wrap { width: min(380px,38vw); display: flex; align-items: center; gap: 12px; }
-  #progress { flex: 1; height: 8px; overflow: hidden; border-radius: 9px; background: #dfe8e5; }
-  #progress > i { display: block; width: 0; height: 100%; background: #25816a; transition: width .3s; }
-  #c-index { min-width: 64px; color: #45625c; font-variant-numeric: tabular-nums; text-align: right; }
-  .metrics { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 16px; padding: 14px 0; border-bottom: 1px solid #d5dfdc; }
-  .metric { min-width: 0; }
-  .metric-label { display: block; color: #71807d; font-size: 11px; }
-  .metric-value { display: block; margin-top: 3px; color: #263e3c; font-size: 13px; font-weight: 620; overflow-wrap: anywhere; }
-  .metric-value a { color: #2a6788; text-decoration: none; }
-  .metric-value a:hover { text-decoration: underline; }
-  .ai-state { display: inline-flex; align-items: center; gap: 7px; }
-  .dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: #8c9996; }
-  .dot.asking { background: #c88a24; }
-  .dot.answering { background: #25816a; box-shadow: 0 0 0 3px #25816a20; animation: pulse 1.1s infinite; }
-  .dot.done { background: #3978a5; }
-  .dot.error { background: #bd5147; }
+  .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 11px 18px; border-top: 1px solid var(--line); }
+
+  #monitor-view.monitor-view { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto auto minmax(0,1fr) 126px; padding: 16px 0 0 18px; border-left: 1px solid var(--line); }
+  #monitor-view .monitor-head { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 0 0 10px; border-bottom: 1px solid var(--line); }
+  #monitor-view .monitor-head h2 { margin: 0; color: var(--ink); font-size: 14px; line-height: 1.35; font-weight: 650; }
+  #monitor-view .monitor-head p:last-child { margin: 2px 0 0; color: var(--muted); font-size: 11px; }
+  .progress-wrap { width: min(220px,42%); min-width: 130px; display: flex; align-items: center; gap: 8px; }
+  #monitor-view #progress { flex: 1; height: 5px; overflow: hidden; border-radius: 0; background: #dce3dd; }
+  #monitor-view #progress > i { display: block; width: 0; height: 100%; background: var(--accent); transition: width .28s; }
+  #monitor-view #c-index { min-width: 56px; color: #46554b; font: 12px ui-monospace,SFMono-Regular,Menlo,monospace; text-align: right; }
+  #monitor-view .metrics { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 7px 10px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+  #monitor-view .metric { min-width: 0; }
+  #monitor-view .metric-label { color: #737e76; font-size: 10px; }
+  #monitor-view .metric-value { min-width: 0; display: block; margin-top: 2px; color: #27352e; font-size: 11.5px; font-weight: 620; overflow-wrap: anywhere; }
+  #monitor-view .metric-value a { color: var(--blue); text-decoration: none; }
+  #monitor-view .metric-value a:hover { text-decoration: underline; }
+  #monitor-view .ai-state { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: #89958d; }
+  .dot.asking { background: var(--amber); }
+  .dot.answering { background: var(--accent); animation: pulse 1.1s infinite; }
+  .dot.done { background: #3c7898; }
+  .dot.error { background: #b4473e; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-  .monitor-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; padding-top: 18px; }
-  .monitor-pane { min-width: 0; min-height: 300px; display: flex; flex-direction: column; border: 1px solid #d5dfdc; border-radius: 6px; background: #fff; }
-  .title { min-height: 42px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 12px; border-bottom: 1px solid #e0e8e5; color: #344d49; font-size: 12px; font-weight: 650; }
-  .title span:last-child { color: #72817e; font-weight: 400; }
-  .body { flex: 1; min-height: 0; overflow: auto; padding: 13px 14px; line-height: 1.7; }
-  .body::-webkit-scrollbar { width: 8px; }
-  .body::-webkit-scrollbar-thumb { border: 2px solid #fff; border-radius: 4px; background: #cbd7d3; }
-  .body h4 { margin: 13px 0 6px; padding-left: 8px; border-left: 3px solid #4a8b7a; color: #315b53; font-size: 13px; }
-  .body p { margin: 6px 0; color: #425653; }
-  .body li { margin: 3px 0 3px 6px; color: #425653; }
-  pre { margin: 8px 0; padding: 10px 12px; overflow: auto; border: 1px solid #dce5e2; border-radius: 4px; background: #f3f7f6; color: #285064; font: 12px/1.55 Consolas,"Cascadia Mono",monospace; }
-  code { padding: 1px 4px; border-radius: 3px; background: #edf3f1; color: #315f71; font-family: Consolas,monospace; }
-  .ai-msg { color: #304440; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
-  .pass { color: #177353; font-weight: 650; }
-  .fail { color: #b5443d; font-weight: 650; }
-  .result-box { margin: 9px 0; padding: 10px 11px; border: 1px solid #d7e1de; border-radius: 5px; background: #f8faf9; }
-  .result-box.pass { border-color: #aad1bd; background: #eff8f2; }
-  .result-box.fail { border-color: #e5b9b3; background: #fff4f2; }
-  .result-box.neutral { border-color: #d7e1de; background: #f5f8f7; }
-  .neutral { color: #667875; font-weight: 650; }
-  .mono { font: 12px/1.55 Consolas,monospace; white-space: pre-wrap; }
-  .empty { color: #85928f; font-style: normal; }
-  .logs { margin-top: 18px; border: 1px solid #d5dfdc; border-radius: 6px; background: #fff; }
-  .logs-head { display: flex; justify-content: space-between; padding: 9px 12px; border-bottom: 1px solid #e0e8e5; color: #344d49; font-size: 12px; font-weight: 650; }
-  #logbox { max-height: 170px; overflow: auto; padding: 8px 12px; font: 11.5px/1.6 Consolas,monospace; }
-  #logbox div { padding: 1px 0; color: #6f7e7b; }
-  #logbox div.err { color: #b5443d; }
-  #logbox div.ai { color: #356b91; }
-  @media(max-width:1100px) { .layout { grid-template-columns: minmax(190px,.75fr) minmax(280px,1.25fr); } #steps-pane { grid-column: 1 / -1; padding: 0; border: 0; } .metrics { grid-template-columns: repeat(3,minmax(0,1fr)); } .monitor-grid { grid-template-columns: 1fr 1fr; } .monitor-pane:last-child { grid-column: 1 / -1; } }
-  @media(max-width:680px) { .topbar { flex-wrap: wrap; gap: 8px 12px; padding: 10px 14px; } .brand { min-width: 0; flex: 1; } .app-tabs { order: 3; width: 100%; } .login-state { max-width: 100%; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; gap: 8px; font-size: 11px; white-space: normal; } main { padding: 16px 14px 142px; } .steps-head { gap: 8px; flex-wrap: wrap; font-size: 12px; } .steps-head .step-divider { width: 12px; } .layout { grid-template-columns: minmax(0,1fr); gap: 22px; } .pane + .pane { padding: 0; border: 0; } #steps-pane { grid-column: auto; } .footer-inner { flex-wrap: wrap; padding: 9px 14px; } #status-line { flex-basis: 100%; order: 3; } #start { flex: 1; } .monitor-head { align-items: flex-start; flex-direction: column; gap: 12px; } .monitor-head h1 { font-size: 19px; } .progress-wrap { width: 100%; } .metrics { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; } .monitor-grid { grid-template-columns: 1fr; gap: 12px; } .monitor-pane,.monitor-pane:last-child { grid-column: auto; min-height: 240px; } }
+  #monitor-view .monitor-grid { min-height: 0; display: grid; grid-template-columns: minmax(0,1fr); grid-template-rows: minmax(76px,.78fr) minmax(96px,1fr) minmax(76px,.82fr); grid-template-areas:"question" "answer" "result"; gap: 0; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  #monitor-view .monitor-pane { min-width: 0; min-height: 0; display: flex; flex-direction: column; border: 0; border-radius: 0; background: transparent; }
+  #monitor-view .question-pane { grid-area: question; border-bottom: 1px solid var(--line-soft); }
+  #monitor-view .answer-pane { grid-area: answer; border-bottom: 1px solid var(--line-soft); }
+  #monitor-view .result-pane { grid-area: result; }
+  #monitor-view .title { min-height: 28px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 4px 0; border-bottom: 1px solid var(--line-soft); color: #334239; font-size: 11px; font-weight: 650; }
+  #monitor-view .title span:last-child { color: #758078; font-weight: 400; }
+  #monitor-view .body { min-height: 0; flex: 1; overflow: auto; padding: 8px 4px 9px 0; line-height: 1.65; }
+  #monitor-view .body::-webkit-scrollbar { width: 7px; }
+  #monitor-view .body::-webkit-scrollbar-thumb { border: 2px solid var(--page); border-radius: 4px; background: #bdc8c0; }
+  #monitor-view .body h4 { margin: 9px 0 4px; padding-left: 7px; border-left: 2px solid var(--accent); color: #315546; font-size: 12px; }
+  #monitor-view .body p,#monitor-view .body li { color: #45524a; font-size: 12px; }
+  #monitor-view pre { margin: 7px 0; padding: 10px 11px; overflow: auto; border: 1px solid #26342d; border-radius: 2px; color: #e6eee8; background: #202a26; font: 11.5px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+  #monitor-view code { padding: 1px 4px; border-radius: 2px; color: #315c70; background: #e9eff0; font-family: ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+  #monitor-view .ai-msg { color: #304139; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  #monitor-view .pass { color: #216948; font-weight: 650; }
+  #monitor-view .fail { color: var(--red); font-weight: 650; }
+  #monitor-view .neutral { color: #58675e; font-weight: 650; }
+  #monitor-view .result-box { margin: 8px 0; padding: 8px 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; }
+  #monitor-view .result-box.pass { border-color: #9fc5ae; }
+  #monitor-view .result-box.fail { border-color: #d9aaa4; }
+  #monitor-view .result-box.neutral { border-color: var(--line); }
+  #monitor-view .mono { margin-top: 4px; font: 11px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+  #monitor-view .empty { padding: 8px 0; color: #7b867f; }
+  #monitor-view .logs { min-height: 0; margin: 0; padding: 0 0 7px; overflow: auto; border: 0; border-radius: 0; color: #d5ded8; background: #202a26; }
+  #monitor-view .logs-head { display: flex; justify-content: space-between; padding: 8px 0 5px; border-bottom: 1px solid #3b4740; color: #d9e1dc; font-size: 10px; font-weight: 600; }
+  #monitor-view .logs-head a { color: #9bc6dc; text-decoration: none; }
+  #monitor-view .logs-head a:hover { text-decoration: underline; }
+  #monitor-view #logbox { max-height: 92px; overflow: auto; padding: 6px 0; font: 10.5px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+  #monitor-view #logbox div { color: #b6c1b9; }
+  #monitor-view #logbox div.ok { color: #82c89d; }
+  #monitor-view #logbox div.err { color: #ed9a8d; }
+  #monitor-view #logbox div.ai { color: #9ac9e3; }
+
+  @media(max-width:1180px) {
+    #workspace.workspace-layout { height: auto; min-height: 0; display: flex; flex-direction: column; padding: 0 22px 104px; }
+    #scope-view.scope-layout { height: 560px; min-height: 560px; grid-template-columns: minmax(0,1.05fr) minmax(285px,.95fr); padding-right: 0; }
+    #monitor-view.monitor-view { min-height: 680px; padding: 18px 0 0; border-top: 1px solid var(--line); border-left: 0; }
+    #monitor-view .monitor-grid { grid-template-columns: repeat(2,minmax(0,1fr)); grid-template-rows: minmax(170px,.85fr) minmax(190px,1fr); grid-template-areas: "question answer" "result result"; column-gap: 18px; }
+    #monitor-view .result-pane { border-top: 0; }
+  }
+  @media(max-width:760px) {
+    .topbar { flex-wrap: wrap; gap: 7px 12px; padding: 8px 14px; }
+    .brand { min-width: 0; flex: 1; }
+    .run-indicator { order: 3; }
+    .header-actions { max-width: 100%; flex-wrap: wrap; justify-content: flex-end; gap: 7px 10px; }
+    .header-actions button { min-height: 40px; padding: 5px 8px; font-size: 11px; }
+    #workspace.workspace-layout { padding: 0 14px 152px; }
+    #scope-view.scope-layout { height: auto; min-height: 0; display: block; padding: 0; }
+    #scope-view .selection-column { min-height: 0; display: flex; flex-direction: column; border: 0; }
+    #scope-view .pane,#scope-view .classroom-rail,#scope-view .course-pane,#scope-view .detail-rail { min-height: 0; display: flex; padding: 14px 0; border: 0; border-bottom: 1px solid var(--line); }
+    #scope-view .class-list { max-height: 210px; flex: none; }
+    #scope-view .course-list { max-height: 42vh; min-height: 120px; flex: none; }
+    #scope-view .selected-list { max-height: 340px; flex: none; }
+    #scope-view .choice-row { min-height: 44px; }
+    #scope-view .step-list .choice-row { min-height: 42px; }
+    #scope-view .mode-section { width: 100%; margin-top: 12px; padding: 12px 0 0; border: 0; border-top: 1px solid var(--line); }
+    #scope-view .message { min-height: 26px; padding-top: 6px; }
+    .footer-inner { min-height: 82px; flex-wrap: wrap; gap: 7px 10px; padding: 8px 14px; }
+    #summary-count { flex: 1; }
+    #status-line { flex-basis: 100%; order: 3; font-size: 11px; }
+    #start { min-width: 125px; }
+    #monitor-view.monitor-view { min-height: 0; display: flex; flex-direction: column; padding: 18px 0 0; border-top: 1px solid var(--line); }
+    #monitor-view .monitor-head { align-items: stretch; flex-direction: column; gap: 8px; }
+    #monitor-view .monitor-head h2 { font-size: 14px; }
+    .progress-wrap { width: 100%; min-width: 0; }
+    #monitor-view .metrics { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px 12px; }
+    #monitor-view .monitor-grid { display: grid; grid-template-columns: minmax(0,1fr); grid-template-rows: auto; grid-template-areas: "question" "answer" "result"; gap: 0; padding: 6px 0; }
+    #monitor-view .question-pane,#monitor-view .answer-pane,#monitor-view .result-pane { min-height: 190px; padding: 8px 0; border: 0; border-bottom: 1px solid var(--line); }
+    #monitor-view .logs { min-height: 160px; }
+    #monitor-view #logbox { max-height: 128px; }
+  }
+  @media(max-width:420px) {
+    .footer-inner { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
+    #summary-count,#status-line { grid-column: 1 / -1; white-space: normal; }
+    #cancel,#start { grid-row: 2; width: 100%; min-width: 0; }
+  }
+  @media(prefers-reduced-motion:reduce) {
+    *,*::before,*::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  }
 </style>
 </head>
 <body>
+<a class="skip-link" href="#scope-view">跳到答题范围</a>
 <header class="topbar">
   <div class="brand"><span class="brand-mark">TA</span><span>Tempo AI 助手</span></div>
-  <nav class="app-tabs" aria-label="面板页面">
-    <button class="app-tab active" id="tab-scope" type="button">答题范围</button>
-    <button class="app-tab" id="tab-monitor" type="button">运行监控 <span class="tab-state" id="tab-state">待开始</span></button>
-  </nav>
-  <div class="login-state"><span class="login-item"><i class="login-dot"></i>Tempo 已登录</span><span class="login-item"><i class="login-dot"></i>AI 已就绪</span><button id="continue-run" type="button" hidden>继续选择范围</button><button id="exit-app" type="button" hidden>退出程序</button></div>
+  <div class="run-indicator"><i aria-hidden="true"></i><span id="task-state" aria-live="polite">待开始</span></div>
+  <div class="header-actions"><button id="continue-run" type="button" hidden>继续选择范围</button><button id="exit-app" type="button" hidden>退出程序</button></div>
 </header>
-<main id="scope-view" class="panel-view">
-  <nav class="steps-head" aria-label="选择流程">
-    <span><b class="step-no">1</b> 选择课堂</span><i class="step-divider"></i>
-    <span><b class="step-no">2</b> 选择实验</span>
-    <i class="step-divider"></i>
-    <span><b class="step-no">3</b> 选择关卡范围</span>
-  </nav>
-  <div class="layout">
-    <section class="pane" id="classroom-pane">
-      <div class="pane-title"><h1>课堂</h1><small id="classroom-count"></small></div>
-      <div class="class-list" id="classrooms"><div class="empty">正在读取课堂列表…</div></div>
-    </section>
-    <section class="pane" id="courses-pane">
-      <div class="pane-title"><h2>实验</h2><small id="course-count"></small></div>
-      <div class="tools"><input id="course-search" type="search" placeholder="搜索实验名称或章节" aria-label="搜索实验名称或章节"></div>
-      <p class="range-note">勾选需要处理的实验。点选一个起点后，按住 Shift 再点终点可连续选择范围。</p>
-      <div class="course-list" id="courses"><div class="empty">请先选择课堂。</div></div>
-    </section>
-    <section class="pane" id="steps-pane">
-      <div class="pane-title"><h2>关卡范围</h2><small id="step-count"></small></div>
-      <p class="range-note">按实际关卡名称和完成状态选择。按住 Shift 连点可框选连续关卡；正式运行会跳过已完成项。</p>
-      <div class="selected-list" id="selected-courses"><div class="empty">选择实验后，这里会显示对应的关卡清单。</div></div>
-    </section>
-  </div>
-  <section class="mode-section" aria-labelledby="mode-title">
-    <div class="pane-title"><h2 id="mode-title">运行方式</h2><small>开始前会再次显示完整清单</small></div>
-    <div class="modebar">
-      <label class="mode-option"><input type="radio" name="mode" value="formal" checked><span><strong>正式答题</strong><small>真实 AI，提交答案并评测；默认跳过已完成关卡</small></span></label>
-      <label class="mode-option"><input type="radio" name="mode" value="trial"><span><strong>单关试运行</strong><small>真实 AI，只处理一关，不提交答案或评测</small></span></label>
-      <label class="mode-option"><input type="radio" name="mode" value="demo"><span><strong>流程演示</strong><small>模拟 AI，不提交答案或评测</small></span></label>
+<main id="workspace" class="workspace-layout">
+  <h1 class="sr-only">Tempo AI 答题工作区</h1>
+  <section id="scope-view" class="scope-layout" aria-label="答题范围" tabindex="-1">
+    <div class="selection-column">
+      <aside class="pane classroom-rail" id="classroom-pane">
+        <div class="pane-title"><span class="step-no">01</span><div><h2>课堂</h2><small id="classroom-count"></small></div></div>
+        <div class="class-list" id="classrooms"><div class="empty">正在读取课堂列表…</div></div>
+      </aside>
+      <section class="pane course-pane" id="courses-pane">
+        <div class="course-toolbar">
+          <div class="pane-title"><span class="step-no">02</span><div><h2>实验</h2><small id="course-count"></small></div></div>
+          <label class="search-field"><span class="sr-only">搜索实验</span><input id="course-search" type="search" placeholder="搜索实验名称或章节" aria-label="搜索实验名称或章节"></label>
+        </div>
+        <div class="course-list" id="courses"><div class="empty">请先选择课堂。</div></div>
+      </section>
     </div>
+    <aside class="pane detail-rail" id="steps-pane">
+      <div class="pane-title"><span class="step-no">03</span><div><h2>关卡范围</h2><small id="step-count"></small></div></div>
+      <div class="selected-list" id="selected-courses"><div class="empty">选择实验后，这里会显示对应的关卡清单。</div></div>
+      <section class="mode-section" aria-labelledby="mode-title">
+        <div class="mode-heading"><h2 id="mode-title">运行方式</h2></div>
+        <div class="modebar" role="radiogroup" aria-labelledby="mode-title">
+          <label class="mode-option"><input type="radio" name="mode" value="formal" checked><span><strong>正式答题</strong><small>真实 AI，提交答案并评测；默认跳过已完成关卡</small></span></label>
+          <label class="mode-option"><input type="radio" name="mode" value="trial"><span><strong>单关试运行</strong><small>真实 AI，只处理一关，不提交答案或评测</small></span></label>
+          <label class="mode-option"><input type="radio" name="mode" value="demo"><span><strong>流程演示</strong><small>模拟 AI，不提交答案或评测</small></span></label>
+        </div>
+      </section>
+    </aside>
+    <div class="message" id="message" role="status" aria-live="polite"></div>
   </section>
-  <div class="message" id="message" role="status" aria-live="polite"></div>
-</main>
-<main id="monitor-view" class="panel-view" hidden>
-  <section class="monitor-head">
-    <div><p class="eyebrow">实时运行状态</p><h1 id="run-title">等待范围确认</h1><p id="run-subtitle">范围确认后，答题过程会在这里实时显示。</p></div>
-    <div class="progress-wrap"><div id="progress" aria-label="任务进度"><i></i></div><span id="c-index">0 / 0</span></div>
+  <section id="monitor-view" class="monitor-view" aria-labelledby="run-title">
+    <section class="monitor-head">
+      <div><h2 id="run-title">运行监控</h2><p id="run-subtitle">等待任务开始</p></div>
+      <div class="progress-wrap"><div id="progress" role="progressbar" aria-label="任务进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div><span id="c-index">0 / 0</span></div>
+    </section>
+    <section class="metrics" aria-label="当前任务信息">
+      <div class="metric"><span class="metric-label">账号</span><strong class="metric-value" id="c-acc">-</strong></div>
+      <div class="metric"><span class="metric-label">课堂</span><strong class="metric-value" id="c-classroom">-</strong></div>
+      <div class="metric"><span class="metric-label">当前实验</span><strong class="metric-value" id="c-course">-</strong></div>
+      <div class="metric"><span class="metric-label">当前关卡</span><strong class="metric-value" id="c-step">-</strong></div>
+      <div class="metric"><span class="metric-label">AI 状态</span><strong class="metric-value ai-state" id="c-ai"><i class="dot"></i><span>空闲</span></strong></div>
+      <div class="metric"><span class="metric-label">用时 / 轮次</span><strong class="metric-value"><span id="c-clock">--:--</span> · <span id="c-round">-</span></strong></div>
+    </section>
+    <div class="monitor-grid">
+      <section class="monitor-pane question-pane"><div class="title"><span>题目</span><span id="t-qtype"></span></div><div class="body" id="p-desc"><span class="empty">等待开始…</span></div></section>
+      <section class="monitor-pane answer-pane"><div class="title"><span>AI 回复</span><span id="t-len"></span></div><div class="body" id="p-ai"><span class="empty">等待提问…</span></div></section>
+      <section class="monitor-pane result-pane"><div class="title"><span>代码与评测</span><span id="t-attempt"></span></div><div class="body" id="p-code"><span class="empty">暂无</span></div></section>
+    </div>
+    <section class="logs"><div class="logs-head"><span>运行日志</span><a id="c-open" target="_blank" rel="noopener" hidden>打开当前实验页</a></div><div id="logbox"></div></section>
   </section>
-  <section class="metrics" aria-label="当前任务信息">
-    <div class="metric"><span class="metric-label">账号</span><strong class="metric-value" id="c-acc">-</strong></div>
-    <div class="metric"><span class="metric-label">课堂</span><strong class="metric-value" id="c-classroom">-</strong></div>
-    <div class="metric"><span class="metric-label">当前实验</span><strong class="metric-value" id="c-course">-</strong></div>
-    <div class="metric"><span class="metric-label">当前关卡</span><strong class="metric-value" id="c-step">-</strong></div>
-    <div class="metric"><span class="metric-label">AI 状态</span><strong class="metric-value ai-state" id="c-ai"><i class="dot"></i><span>空闲</span></strong></div>
-    <div class="metric"><span class="metric-label">用时 / 轮次</span><strong class="metric-value"><span id="c-clock">00:00</span> · <span id="c-round">-</span></strong></div>
-  </section>
-  <div class="monitor-grid">
-    <section class="monitor-pane"><div class="title"><span>平台题目原文</span><span id="t-qtype"></span></div><div class="body" id="p-desc"><span class="empty">等待开始…</span></div></section>
-    <section class="monitor-pane"><div class="title"><span>AI 回复过程</span><span id="t-len"></span></div><div class="body" id="p-ai"><span class="empty">等待提问…</span></div></section>
-    <section class="monitor-pane"><div class="title"><span>提交代码与评测结果</span><span id="t-attempt"></span></div><div class="body" id="p-code"><span class="empty">暂无</span></div></section>
-  </div>
-  <section class="logs"><div class="logs-head"><span>运行日志</span><a id="c-open" target="_blank" rel="noopener" hidden>打开当前实验页</a></div><div id="logbox"></div></section>
-</main>
 <footer class="footer" id="selection-footer">
   <div class="footer-inner">
     <div id="summary-count"><strong>0</strong> 个实验 · <strong>0</strong> 个关卡</div>
@@ -364,7 +434,7 @@ function updateSummary() {
   el("summary-count").replaceChildren(make("strong","",String(selection.courses.length)),document.createTextNode(" 个实验 · "),make("strong","",String(selection.steps)),document.createTextNode(" 个关卡"));
   const ready = !!data.classroomId && selection.steps > 0 && data.busy === 0 && (mode() !== "trial" || selection.steps === 1);
   el("start").disabled = !ready;
-  if (!selection.steps && !data.busy) el("status-line").textContent = "请至少选择一个未完成关卡。";
+  if (!selection.steps && !data.busy) el("status-line").textContent = mode() === "trial" ? "请选择一个关卡。" : "请至少选择一个未完成关卡。";
   else if (mode() === "trial" && selection.steps !== 1) el("status-line").textContent = "单关试运行需要且只能选择一个关卡。";
   else if (selection.passed) el("status-line").textContent = `${selection.passed} 个已完成关卡会跳过；确认范围后才会启动。`;
   else if (ready) el("status-line").textContent = "范围就绪；确认前不会启动实践环境、AI 请求或评测。";
@@ -411,9 +481,9 @@ el("confirm-start").addEventListener("click",async () => {
     el("confirm-dialog").close();
     data.started = true;
     document.querySelectorAll("#scope-view input, #scope-view button").forEach(control => { control.disabled = true; });
-    el("tab-state").textContent = "运行中";
-    el("status-line").textContent = "范围已确认并锁定；运行过程请查看监控面板。";
-    showPanelView("monitor");
+    el("task-state").textContent = "运行中";
+    el("status-line").textContent = "范围已确认并锁定；运行状态持续显示在右侧。";
+    setSelectionLocked(true);
     tick();
   }
   catch (error) { el("confirm-dialog").close(); showMessage(`无法开始：${error.message}`,"error"); }
@@ -428,11 +498,11 @@ el("continue-run").addEventListener("click",async () => {
     data.courseAnchor = -1; data.stepAnchors.clear();
     el("course-search").value = "";
     document.querySelectorAll("#scope-view input, #scope-view button").forEach(control => { control.disabled = false; });
-    el("run-title").textContent = "等待范围确认";
-    el("run-subtitle").textContent = "选择下一组课堂、实验和关卡范围。";
-    el("tab-state").textContent = "待开始";
+    el("run-title").textContent = "运行监控";
+    el("run-subtitle").textContent = "等待任务开始";
+    el("task-state").textContent = "待开始";
     el("continue-run").hidden = true; el("exit-app").hidden = true;
-    showPanelView("scope");
+    setSelectionLocked(false);
     renderClassrooms(); renderCourses(); renderSelected(); updateSummary();
     await loadClassrooms();
   } catch (error) { showMessage(`无法继续选择：${error.message}`,"error"); }
@@ -457,16 +527,9 @@ async function loadClassrooms() {
   updateSummary();
 }
 async function init() { await loadClassrooms(); }
-function showPanelView(name) {
-  const monitor = name === "monitor";
-  el("scope-view").hidden = monitor;
-  el("monitor-view").hidden = !monitor;
-  el("selection-footer").hidden = monitor;
-  el("tab-scope").classList.toggle("active",!monitor);
-  el("tab-monitor").classList.toggle("active",monitor);
+function setSelectionLocked(locked) {
+  el("selection-footer").hidden = locked;
 }
-el("tab-scope").addEventListener("click",() => showPanelView("scope"));
-el("tab-monitor").addEventListener("click",() => showPanelView("monitor"));
 
 const monitorLast = {};
 function monitorSetIfChanged(id,key,html) {
@@ -495,15 +558,19 @@ function renderMonitor(state) {
   el("c-step").textContent = state.step_no ? `第 ${state.step_no} 关 · ${state.step_name || ""}` : "-";
   el("c-round").textContent = state.chat_round || "-";
   el("c-index").textContent = `${state.index || 0} / ${state.total || 0}`;
-  el("c-classroom").textContent = data.classroomLabel || "-";
-  el("progress").firstElementChild.style.width = (state.total ? Math.min(100,(state.index / state.total) * 100) : 0) + "%";
+  const selectedClassroom = data.classrooms.find(item => item.id === data.classroomId);
+  const classroomLabel = data.classroomLabel || `${selectedClassroom?.classroomName || ""} ${selectedClassroom?.belongToClass || ""}`.trim();
+  el("c-classroom").textContent = classroomLabel || "-";
+  const progress = state.total ? Math.min(100,(state.index / state.total) * 100) : 0;
+  el("progress").firstElementChild.style.width = progress + "%";
+  el("progress").setAttribute("aria-valuenow",String(Math.round(progress)));
 
   const statuses = { idle:["","空闲"], asking:["asking","等待 AI 回复"], answering:["answering","AI 正在输出"], done:["done","本关已完成"], finished:["done","任务已结束"], error:["error","运行异常"] };
   const [statusClass,statusText] = statuses[state.ai_status] || ["",state.ai_status || "空闲"];
   el("c-ai").replaceChildren(Object.assign(document.createElement("i"),{className:`dot ${statusClass}`}),document.createElement("span"));
   el("c-ai").lastElementChild.textContent = statusText;
-  const seconds = Math.max(0,Math.floor(Date.now()/1000 - (state.started_at || Date.now()/1000)));
-  el("c-clock").textContent = String(Math.floor(seconds/60)).padStart(2,"0") + ":" + String(seconds%60).padStart(2,"0");
+  const seconds = data.started ? Math.max(0,Math.floor(Date.now()/1000 - (state.started_at || Date.now()/1000))) : 0;
+  el("c-clock").textContent = data.started ? String(Math.floor(seconds/60)).padStart(2,"0") + ":" + String(seconds%60).padStart(2,"0") : "--:--";
   el("t-qtype").textContent = state.qtype || "";
   monitorSetIfChanged("p-desc","desc",state.desc ? monitorMarkdown(state.desc) : '<span class="empty">等待开始…</span>');
 
@@ -535,10 +602,10 @@ function renderMonitor(state) {
 
   if (state.ai_status === "finished") {
     el("run-title").textContent = "本次范围已完成";
-    el("tab-state").textContent = "本段完成";
+    el("task-state").textContent = "本段完成";
     el("continue-run").hidden = false;
     el("exit-app").hidden = false;
-    el("run-subtitle").textContent = "本次范围已完成。可以继续选择新的范围，或退出程序并执行会话清理。";
+    el("run-subtitle").textContent = data.runSummary;
     return;
   }
   el("continue-run").hidden = true;
@@ -546,8 +613,8 @@ function renderMonitor(state) {
   if (state.ai_status === "error") el("run-title").textContent = "任务运行异常";
   else if (data.started && state.total) el("run-title").textContent = "正在处理答题范围";
   else if (data.started) el("run-title").textContent = "任务已启动";
-  el("run-subtitle").textContent = data.runSummary || "范围确认后，答题过程会在这里实时显示。";
-  if (state.ai_status === "error") el("tab-state").textContent = "有异常";
+  el("run-subtitle").textContent = data.runSummary || "等待任务开始";
+  if (state.ai_status === "error") el("task-state").textContent = "有异常";
 }
 async function tick() {
   try {

@@ -116,15 +116,30 @@ func TestCreateNew(t *testing.T) {
 	}
 }
 
-func TestNormalizePlatformURLPreservesOtherComponents(t *testing.T) {
-	if got := NormalizePlatformURL(" https://tempo.example/tempo-talents/ "); got != "https://tempo.example/tempo-talents/" {
-		t.Fatalf("unexpected normalized URL: %q", got)
+func TestNormalizePlatformURL(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{name: "trim whitespace", in: " https://tempo.example/tempo-talents/ ", want: "https://tempo.example/tempo-talents/"},
+		{name: "strip SPA route", in: "https://tempo.example/tempo-talents/#/login?from=copy", want: "https://tempo.example/tempo-talents/"},
+		{name: "truncate query", in: "https://tempo.example/tempo-talents/?tenant=course", want: "https://tempo.example/tempo-talents/"},
+		{name: "truncate login path", in: "http://10.0.40.37:32080/tempo-talents/login#/login", want: "http://10.0.40.37:32080/tempo-talents/"},
+		{name: "exact app path", in: "https://tempo.example/tempo-talents", want: "https://tempo.example/tempo-talents/"},
+		{name: "bracketed terminal paste", in: "\x1b[200~http://10.0.40.37:32080/tempo-talents/#/login\x1b[201~", want: "http://10.0.40.37:32080/tempo-talents/"},
+		{name: "wrapped copied URL", in: "[http://10.0.40.37:32080/tempo-talents/#/login]", want: "http://10.0.40.37:32080/tempo-talents/"},
+		{name: "invisible unicode marks", in: "\u200b\ufeffhttps://tempo.example/tempo-talents/#/login\u200b", want: "https://tempo.example/tempo-talents/"},
+		{name: "lookalike path", in: "https://tempo.example/tempo-talents-extra/#/login", want: "https://tempo.example/tempo-talents-extra/"},
+		{name: "IPv6 host", in: "http://[::1]:8080/tempo-talents/#/login", want: "http://[::1]:8080/tempo-talents/"},
+		{name: "invalid escape retained", in: "https://tempo.example/%zz/tempo-talents/#/login", want: "https://tempo.example/%zz/tempo-talents/#/login"},
 	}
-	if got := NormalizePlatformURL("https://tempo.example/tempo-talents/#/login?from=copy"); got != "https://tempo.example/tempo-talents/" {
-		t.Fatalf("SPA route was not removed: %q", got)
-	}
-	if got := NormalizePlatformURL("https://tempo.example/tempo-talents/?tenant=course"); got != "https://tempo.example/tempo-talents/?tenant=course" {
-		t.Fatalf("query string was changed: %q", got)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := NormalizePlatformURL(tt.in); got != tt.want {
+				t.Fatalf("NormalizePlatformURL(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
 	}
 	c := good()
 	c.Platform.BaseURL = "http://10.0.40.37:32080/tempo-talents/#/login"

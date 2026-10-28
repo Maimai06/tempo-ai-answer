@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode"
 )
 
 // Template 内嵌不含真实凭据的占位配置。
@@ -100,7 +101,19 @@ func Decode(b []byte) (Config, error) {
 func NormalizePlatformURL(raw string) string {
 	raw = strings.ReplaceAll(raw, "\x1b[200~", "")
 	raw = strings.ReplaceAll(raw, "\x1b[201~", "")
-	raw = strings.TrimSpace(strings.Trim(raw, "\ufeff"))
+	raw = strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) || unicode.In(r, unicode.Cf) {
+			return -1
+		}
+		return r
+	}, raw)
+	raw = strings.TrimSpace(raw)
+	if len(raw) >= 2 {
+		first, last := raw[0], raw[len(raw)-1]
+		if first == '"' && last == '"' || first == '\'' && last == '\'' || first == '<' && last == '>' || first == '[' && last == ']' || first == '(' && last == ')' {
+			raw = strings.TrimSpace(raw[1 : len(raw)-1])
+		}
+	}
 	u, err := url.Parse(raw)
 	if err != nil {
 		return raw
@@ -110,6 +123,8 @@ func NormalizePlatformURL(raw string) string {
 		if end == len(u.Path) || u.Path[end] == '/' {
 			u.Path = u.Path[:end] + "/"
 			u.RawPath = ""
+			u.RawQuery = ""
+			u.ForceQuery = false
 			u.Fragment = ""
 			u.RawFragment = ""
 			return u.String()

@@ -1,8 +1,6 @@
 module github.com/Maimai06/tempo-ai-answer
 
-go 1.26.0
-
-toolchain go1.26.5
+go 1.26.10
 
 require (
 	github.com/chromedp/cdproto v0.0.0-20250724212937-08a3db8b4327

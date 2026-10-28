@@ -278,7 +278,7 @@ CLI 解析参数 → LoadConfig（默认值 + Validate）
 
 | 项 | 选型 | 说明 |
 | --- | --- | --- |
-| 语言与运行时 | Go 1.26.5（go 1.26.0 / toolchain go1.26.5） | `CGO_ENABLED=0`，运行时内置，目标机器无需安装 Go；索引、错误与取消显式处理 |
+| 语言与运行时 | Go 1.26.10（go 1.26.10 / toolchain go1.26.10） | `CGO_ENABLED=0`，运行时内置，目标机器无需安装 Go；索引、错误与取消显式处理 |
 | 浏览器自动化 | `chromedp` + Chrome DevTools Protocol | 纯 Go 路线，无独立 WebDriver；移植 v1 页面操作和异步脚本执行，M0.5 验证后锁版本 |
 | 配置校验 | `encoding/json` + 配置结构体 + 集中 `Validate` | 默认值补齐、字段类型及范围校验、旧配置兼容 |
 | CLI | `cobra` + 现有交互菜单迁移 | 子命令与参数契约保持一致，依赖不得引入 CGO |

@@ -4,7 +4,7 @@ main:
     - &verified-build
       name: test-build-sync
       docker:
-        image: golang:1.26.5-bookworm
+        image: golang:1.26.10-bookworm
       env:
         GOPROXY: https://goproxy.cn,direct
       stages:
@@ -34,7 +34,7 @@ main:
     - &verify-only
       name: verify
       docker:
-        image: golang:1.26.5-bookworm
+        image: golang:1.26.10-bookworm
       env:
         GOPROXY: https://goproxy.cn,direct
       stages:

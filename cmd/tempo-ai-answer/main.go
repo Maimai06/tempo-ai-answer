@@ -28,6 +28,7 @@ var commit = "unknown"
 type app struct {
 	reader                            *bufio.Reader
 	writer                            io.Writer
+	inputTTY                          *os.File
 	dataDir, configPath               string
 	logPath                           string
 	scope, course, steps, classroomID string
@@ -54,7 +55,7 @@ func main() {
 func command() *cobra.Command {
 	a := &app{reader: bufio.NewReader(os.Stdin)}
 	root := &cobra.Command{Use: "tempo-ai-answer", Short: "Tempo 实训助手 · Go 跨平台版", Version: version + " (" + commit + ")", SilenceUsage: true, SilenceErrors: true, RunE: func(cmd *cobra.Command, _ []string) error {
-		a.reader, a.writer = bufio.NewReader(cmd.InOrStdin()), cmd.OutOrStdout()
+		a.bindIO(cmd)
 		return a.execute(cmd.Context(), "panel")
 	}}
 	root.PersistentFlags().StringVar(&a.dataDir, "data-dir", "", "profile 和日志目录；显式指定且未传 --config 时也从此处读取配置")
@@ -62,13 +63,17 @@ func command() *cobra.Command {
 	root.PersistentFlags().StringVar(&a.classroomID, "classroom", "", "课堂 ID（使用 classrooms 查看），优先于配置文件")
 	for _, name := range []string{"login", "classrooms", "list", "ai-test"} {
 		n := name
-		root.AddCommand(&cobra.Command{Use: n, Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error { return a.execute(cmd.Context(), n) }})
+		root.AddCommand(&cobra.Command{Use: n, Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+			a.bindIO(cmd)
+			return a.execute(cmd.Context(), n)
+		}})
 	}
 	root.AddCommand(&cobra.Command{Use: "menu", Short: "打开终端交互菜单", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
-		a.reader, a.writer = bufio.NewReader(cmd.InOrStdin()), cmd.OutOrStdout()
+		a.bindIO(cmd)
 		return a.menu(cmd)
 	}})
 	check := &cobra.Command{Use: "check", Short: "本地检查；不加 --local 时另检查远端登录", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+		a.bindIO(cmd)
 		if e := a.localCheck(); e != nil {
 			return e
 		}
@@ -79,7 +84,10 @@ func command() *cobra.Command {
 	}}
 	check.Flags().BoolVar(&a.local, "local", false, "仅本地检查，不读取账号、不访问平台或 AI")
 	root.AddCommand(check)
-	run := &cobra.Command{Use: "run", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error { return a.execute(cmd.Context(), "run") }}
+	run := &cobra.Command{Use: "run", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+		a.bindIO(cmd)
+		return a.execute(cmd.Context(), "run")
+	}}
 	f := run.Flags()
 	f.StringVar(&a.scope, "scope", "", "如 第1章 1-5 / 1-3")
 	f.StringVar(&a.course, "course", "", "实验名包含关键字")
@@ -163,7 +171,7 @@ func (a *app) execute(ctx context.Context, name string) (runErr error) {
 	if a.limit < 0 {
 		return errors.New("limit 不能小于 0")
 	}
-	cfg, e := config.Load(a.configPath)
+	cfg, e := a.loadConfig()
 	if errors.Is(e, config.ErrCreated) {
 		a.showConfigCreated()
 		return nil

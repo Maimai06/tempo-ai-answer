@@ -2,107 +2,120 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AI 答题监控台</title>
 <style>
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; background: #0d1117; color: #c9d1d9;
-    font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
-    height: 100vh; display: flex; flex-direction: column; font-size: 13px;
+  :root { --page:#f3f5f2; --surface:#fff; --ink:#202a26; --muted:#65716a; --line:#d7ddd8; --line-soft:#e7ebe7; --accent:#216b55; --amber:#bd8425; --blue:#356b8a; }
+  * { box-sizing:border-box; }
+  body { min-width:320px; margin:0; color:var(--ink); background:var(--page); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif; }
+  header { position:relative; display:flex; flex:none; flex-direction:column; align-items:stretch; gap:0; padding:0 22px; border-bottom:1px solid var(--line); background:#fbfcfa; }
+  header .brand { min-height:48px; display:flex; align-items:center; margin:0; color:#f5f7f4; font-size:14px; }
+  header .brand::before { content:"TA"; width:26px; height:26px; display:grid; place-items:center; margin-right:9px; border-radius:3px; color:#17241e; background:#a8d1b8; font-size:10px; font-weight:750; }
+  .header-line { min-height:48px; display:flex; align-items:center; gap:20px; border-bottom:1px solid var(--line); }
+  .header-line .brand { flex:1; }
+  .progress-wrap { width:min(360px,38vw); display:flex; align-items:center; gap:9px; color:var(--muted); font-size:11px; }
+  .progress-wrap #progress { flex:1; min-width:80px; height:5px; overflow:hidden; border-radius:0; background:#dce3dd; }
+  #progress > i { display:block; width:0; height:100%; background:var(--accent); transition:width .28s; }
+  .progress-wrap .chip { min-width:60px; justify-content:flex-end; color:#435148; font:11px ui-monospace,SFMono-Regular,Menlo,monospace; }
+  .progress-wrap .chip b { font:inherit; }
+  .header-line #c-ai { display:inline-flex; align-items:center; gap:7px; color:#334239; font-size:11px; }
+  .dot { width:8px; height:8px; flex:none; border-radius:50%; background:#89958d; }
+  .dot.asking { background:var(--amber); }
+  .dot.answering { background:var(--accent); animation:pulse 1.1s infinite; }
+  .dot.done { background:#3c7898; }
+  .dot.error { background:#b4473e; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  .run-meta { min-height:48px; display:flex; align-items:center; gap:0; overflow:auto; }
+  .run-meta .chip { min-height:30px; display:flex; flex:1 0 auto; align-items:center; justify-content:flex-start; padding:0 13px; border:0; border-left:1px solid var(--line); color:#707b73; background:transparent; font-size:10px; }
+  .run-meta .chip:first-child { padding-left:0; border-left:0; }
+  .run-meta .chip b { color:#29372f; font-size:11.5px; font-weight:600; }
+  .run-meta #c-open { flex:none; color:var(--blue); text-decoration:none; }
+  .run-meta #c-clock::before { content:"用时 "; color:#707b73; font:10px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+  .run-meta #c-open:hover { text-decoration:underline; }
+  main { min-height:0; flex:1; display:grid; grid-template-columns:minmax(0,1.18fr) minmax(300px,.82fr); grid-template-rows:minmax(130px,.78fr) minmax(150px,1fr); grid-template-areas:"question result" "answer result"; gap:0 24px; padding:0 22px; }
+  main section { min-width:0; min-height:0; display:flex; flex-direction:column; background:transparent; }
+  main section:nth-child(1) { grid-area:question; border-bottom:1px solid var(--line); }
+  main section:nth-child(2) { grid-area:answer; }
+  main section:nth-child(3) { grid-area:result; margin:0; padding-left:20px; border-left:1px solid var(--line); }
+  .title { min-height:34px; padding:6px 0; border-bottom:1px solid var(--line-soft); color:#334239; font-size:11px; }
+  .title span:last-child { color:#758078; }
+  .body { min-height:0; flex:1; overflow:auto; padding:9px 4px 9px 0; line-height:1.65; }
+  .body h4 { margin:9px 0 4px; padding-left:7px; border-left:2px solid var(--accent); color:#315546; font-size:12px; }
+  p,li { color:#45524a; font-size:12px; }
+  pre { margin:7px 0; padding:10px 11px; overflow:auto; border:1px solid #26342d; border-radius:2px; color:#e6eee8; background:#202a26; font:11.5px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+  code { padding:1px 4px; border-radius:2px; color:#315c70; background:#e9eff0; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+  .ai-msg { color:#304139; font-size:12px; line-height:1.65; }
+  .result-box { margin:8px 0; padding:8px 0; border:0; border-top:1px solid var(--line); border-radius:0; background:transparent; }
+  .result-box.pass { border-color:#9fc5ae; background:transparent; }
+  .result-box.fail { border-color:#d9aaa4; background:transparent; }
+  .result-box.neutral { border-color:var(--line); background:transparent; }
+  .pass { color:#216948; }
+  .fail { color:#a64038; }
+  .neutral { color:#58675e; }
+  .mono { margin-top:4px; font:11px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .empty { padding:8px 0; color:#7b867f; }
+  .logs { flex:none; height:150px; overflow:auto; padding:0 22px 7px; border:0; background:#202a26; }
+  .logs-head { display:flex; justify-content:space-between; padding:8px 0 5px; border-bottom:1px solid #3b4740; color:#d9e1dc; font-size:10px; font-weight:600; }
+  .logs-head a { color:#9bc6dc!important; }
+  #logbox { max-height:116px; overflow:auto; padding:6px 0; color:#b6c1b9; font:10.5px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+  #logbox div { color:#b6c1b9; }
+  #logbox div.ok { color:#82c89d; }
+  #logbox div.err { color:#ed9a8d; }
+  #logbox div.ai { color:#9ac9e3; }
+  a:focus-visible { outline:2px solid var(--blue); outline-offset:2px; }
+  @media(max-width:900px) {
+    .run-meta { flex-wrap:wrap; padding:3px 0; }
+    .run-meta .chip { flex-basis:30%; padding-inline:8px; }
+    main { grid-template-columns:minmax(0,1fr) minmax(250px,.8fr); gap:0 16px; }
   }
-  header {
-    display: flex; align-items: center; gap: 18px; padding: 10px 18px;
-    background: linear-gradient(90deg,#161b22,#1c2430); border-bottom: 1px solid #30363d;
-    flex-wrap: wrap;
+  @media(max-width:680px) {
+    body { min-height:100vh; }
+    header { padding:0 14px; }
+    .header-line { flex-wrap:wrap; gap:0 12px; padding:7px 0; }
+    header .brand { min-height:34px; }
+    .progress-wrap { order:3; width:100%; padding:4px 0; }
+    .run-meta { min-height:0; }
+    .run-meta .chip { flex:1 0 46%; min-height:34px; padding:3px 7px; }
+    .run-meta .chip:nth-child(odd) { padding-left:0; border-left:0; }
+    main { display:flex; flex-direction:column; gap:0; padding:0 14px; }
+    main section:nth-child(1),main section:nth-child(2),main section:nth-child(3) { min-height:220px; padding:10px 0; border:0; border-bottom:1px solid var(--line); }
+    .logs { height:160px; padding-inline:14px; }
+    #logbox { max-height:126px; }
   }
-  header .brand { font-weight: 600; color: #58a6ff; letter-spacing: .5px; }
-  .chip {
-    background: #21262d; border: 1px solid #30363d; border-radius: 999px;
-    padding: 3px 11px; font-size: 12px; color: #8b949e;
-  }
-  .chip b { color: #c9d1d9; font-weight: 600; }
-  .chip.live { border-color: #238636; color: #3fb950; }
-  .chip.wait { border-color: #9e6a03; color: #d29922; }
-  .chip.bad  { border-color: #8b2c2c; color: #f85149; }
-  #progress { flex: 1; min-width: 120px; height: 6px; background: #21262d; border-radius: 4px; overflow: hidden; }
-  #progress > i { display: block; height: 100%; width: 0%; background: #3fb950; transition: width .3s; }
-
-  main { flex: 1; display: grid; grid-template-columns: 1.15fr 1fr 1.05fr; gap: 1px; background: #30363d; min-height: 0; }
-  section { background: #0d1117; display: flex; flex-direction: column; min-height: 0; }
-  .title {
-    padding: 8px 14px; font-size: 12px; letter-spacing: .6px; color: #8b949e;
-    background: #161b22; border-bottom: 1px solid #21262d; display: flex; justify-content: space-between;
-  }
-  .title span:last-child { color: #484f58; }
-  .body { flex: 1; overflow: auto; padding: 14px 16px; line-height: 1.75; }
-  .body::-webkit-scrollbar { width: 8px; }
-  .body::-webkit-scrollbar-thumb { background: #30363d; border-radius: 4px; }
-
-  h4 { color: #58a6ff; font-size: 13px; margin: 14px 0 6px; padding-left: 8px; border-left: 3px solid #1f6feb; }
-  p { margin: 6px 0; color: #adbac7; }
-  li { margin: 3px 0 3px 6px; color: #adbac7; }
-  pre {
-    background: #161b22; border: 1px solid #21262d; border-radius: 6px;
-    padding: 10px 12px; overflow: auto; font-family: Consolas, "Cascadia Mono", monospace;
-    font-size: 12px; line-height: 1.55; color: #a5d6ff; margin: 8px 0;
-  }
-  code { font-family: Consolas, monospace; background: #1c2128; padding: 1px 5px; border-radius: 4px; color: #79c0ff; }
-
-  .ai-msg { white-space: pre-wrap; word-break: break-word; font-size: 12.5px; line-height: 1.7; color: #c9d1d9; }
-  .status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: #484f58; }
-  .dot.asking { background: #d29922; }
-  .dot.answering { background: #3fb950; box-shadow: 0 0 8px #3fb950; animation: pulse 1.1s infinite; }
-  .dot.done { background: #58a6ff; }
-  .dot.error { background: #f85149; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
-
-  .pass { color: #3fb950; font-weight: 600; }
-  .fail { color: #f85149; font-weight: 600; }
-  .result-box { border: 1px solid #21262d; border-radius: 8px; padding: 10px 12px; margin: 8px 0; background: #10151c; }
-  .result-box.pass { border-color: #238636; background: #0d1a10; }
-  .result-box.fail { border-color: #8b2c2c; background: #1a0d0d; }
-  .result-box.neutral { border-color: #30363d; background: #12171e; }
-  .neutral { color: #8b949e; font-weight: 600; }
-  .mono { font-family: Consolas, monospace; font-size: 12px; white-space: pre-wrap; }
-
-  #logbox { font-family: Consolas, monospace; font-size: 11.5px; }
-  #logbox div { padding: 1px 0; color: #7d8590; }
-  #logbox div.ok { color: #3fb950; }
-  #logbox div.err { color: #f85149; }
-  #logbox div.ai { color: #58a6ff; }
-  .empty { color: #484f58; font-style: italic; }
-  .logs { border-top: 1px solid #21262d; background: #0b0f14; height: 148px; overflow: auto; padding: 8px 14px; }
+  @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important; } }
 </style>
 </head>
 <body>
 <header>
-  <div class="brand">AI 答题监控台</div>
-  <div class="chip" id="c-acc">账号 <b>-</b></div>
-  <div class="chip" id="c-course">实验 <b>-</b></div>
-  <div class="chip" id="c-step">关卡 <b>-</b></div>
-  <div class="chip" id="c-index">进度 <b>0 / 0</b></div>
-  <div class="chip" id="c-round">对话 <b>-</b></div>
-  <div id="progress"><i></i></div>
-  <a class="chip" id="c-open" target="_blank" rel="noopener"
-     style="display:none;text-decoration:none;cursor:pointer">↗ 打开平台实验页</a>
-  <div class="chip" id="c-ai"><span class="dot"></span><span>空闲</span></div>
-  <div class="chip" id="c-clock">00:00</div>
+  <div class="header-line">
+    <div class="brand">Tempo AI · 运行监控</div>
+    <div class="progress-wrap"><div id="progress" role="progressbar" aria-label="任务进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div><div class="chip" id="c-index">进度 <b>0 / 0</b></div></div>
+    <div class="chip" id="c-ai"><span class="dot"></span><span>空闲</span></div>
+  </div>
+  <div class="run-meta">
+    <div class="chip" id="c-acc">账号 <b>-</b></div>
+    <div class="chip" id="c-course">实验 <b>-</b></div>
+    <div class="chip" id="c-step">关卡 <b>-</b></div>
+    <div class="chip" id="c-round">对话 <b>-</b></div>
+    <div class="chip" id="c-clock">00:00</div>
+    <a class="chip" id="c-open" target="_blank" rel="noopener"
+       style="display:none;text-decoration:none;cursor:pointer">打开平台实验页</a>
+  </div>
 </header>
 
 <main>
   <section>
-    <div class="title"><span>平台题目原文</span><span id="t-qtype"></span></div>
+    <div class="title"><span>题目</span><span id="t-qtype"></span></div>
     <div class="body" id="p-desc"><span class="empty">等待开始 …</span></div>
   </section>
 
   <section>
-    <div class="title"><span>AI 回复过程</span><span id="t-len"></span></div>
+    <div class="title"><span>AI 回复</span><span id="t-len"></span></div>
     <div class="body" id="p-ai"><span class="empty">等待提问 …</span></div>
   </section>
 
   <section>
-    <div class="title"><span>提交代码与评测结果</span><span id="t-attempt"></span></div>
+    <div class="title"><span>代码与评测</span><span id="t-attempt"></span></div>
     <div class="body" id="p-code"><span class="empty">暂无</span></div>
   </section>
 </main>
@@ -137,8 +150,9 @@ function render(s) {
   document.getElementById("c-step").innerHTML = "关卡 <b>第" + (s.step_no || "-") + "关 " + esc(s.step_name || "") + "</b>";
   document.getElementById("c-index").innerHTML = "进度 <b>" + (s.index || 0) + " / " + (s.total || 0) + "</b>";
   document.getElementById("c-round").innerHTML = "对话 <b>" + (s.chat_round || "-") + "</b>";
-  document.querySelector("#progress > i").style.width =
-    (s.total ? Math.min(100, (s.index / s.total) * 100) : 0) + "%";
+  const progress = s.total ? Math.min(100, (s.index / s.total) * 100) : 0;
+  document.querySelector("#progress > i").style.width = progress + "%";
+  document.getElementById("progress").setAttribute("aria-valuenow",String(Math.round(progress)));
 
   const map = {idle: ["", "空闲"], asking: ["asking", "已发送，等待回复"], answering: ["answering", "AI 正在输出"], done: ["done", "本关完成"], error: ["error", "出错"]};
   const [cls, txt] = map[s.ai_status] || ["", s.ai_status];

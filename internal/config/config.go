@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode"
 )
 
 // Template 内嵌不含真实凭据的占位配置。
@@ -92,11 +93,54 @@ func Decode(b []byte) (Config, error) {
 	if err := d.Decode(&c); err != nil {
 		return c, fmt.Errorf("配置字段类型错误: %w", err)
 	}
+	c.Platform.BaseURL = NormalizePlatformURL(c.Platform.BaseURL)
 	return c, c.Validate()
+}
+
+// NormalizePlatformURL 清理终端粘贴标记，并将复制来的 Tempo 地址截到应用入口。
+func NormalizePlatformURL(raw string) string {
+	raw = strings.ReplaceAll(raw, "\x1b[200~", "")
+	raw = strings.ReplaceAll(raw, "\x1b[201~", "")
+	raw = strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) || unicode.In(r, unicode.Cf) {
+			return -1
+		}
+		return r
+	}, raw)
+	raw = strings.TrimSpace(raw)
+	if len(raw) >= 2 {
+		first, last := raw[0], raw[len(raw)-1]
+		if first == '"' && last == '"' || first == '\'' && last == '\'' || first == '<' && last == '>' || first == '[' && last == ']' || first == '(' && last == ')' {
+			raw = strings.TrimSpace(raw[1 : len(raw)-1])
+		}
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return raw
+	}
+	if i := strings.Index(u.Path, "/tempo-talents"); i >= 0 {
+		end := i + len("/tempo-talents")
+		if end == len(u.Path) || u.Path[end] == '/' {
+			u.Path = u.Path[:end] + "/"
+			u.RawPath = ""
+			u.RawQuery = ""
+			u.ForceQuery = false
+			u.Fragment = ""
+			u.RawFragment = ""
+			return u.String()
+		}
+	}
+	if u.Fragment == "" && u.RawFragment == "" {
+		return raw
+	}
+	u.Fragment = ""
+	u.RawFragment = ""
+	return u.String()
 }
 
 // Validate 启动前校验，不在错误中回显凭据。
 func (c Config) Validate() error {
+	c.Platform.BaseURL = NormalizePlatformURL(c.Platform.BaseURL)
 	u, e := url.Parse(c.Platform.BaseURL)
 	if e != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") || strings.Contains(strings.ToUpper(c.Platform.BaseURL), "YOUR_") || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
 		return errors.New("platform.base_url 请填写真实 HTTP(S) 平台地址")
@@ -163,6 +207,35 @@ func Load(path string) (Config, error) {
 		return Config{}, e
 	}
 	return Decode(b)
+}
+
+// CreateNew 验证并以仅用户可读权限创建配置，不覆盖已有文件。
+func CreateNew(path string, c Config) error {
+	c.Platform.BaseURL = NormalizePlatformURL(c.Platform.BaseURL)
+	if err := c.Validate(); err != nil {
+		return err
+	}
+	b, err := json.MarshalIndent(c, "", "  ")
+	if err != nil {
+		return fmt.Errorf("编码配置失败: %w", err)
+	}
+	b = append(b, '\n')
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		return err
+	}
+	n, writeErr := f.Write(b)
+	if writeErr == nil && n != len(b) {
+		writeErr = io.ErrShortWrite
+	}
+	closeErr := f.Close()
+	if writeErr != nil || closeErr != nil {
+		return errors.Join(writeErr, closeErr, os.Remove(path))
+	}
+	return nil
 }
 
 // DataDir 使用系统用户配置目录，迁移和升级不覆盖 profile 或日志。

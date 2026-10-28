@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -24,6 +25,15 @@ func TestDefaultsAndValidation(t *testing.T) {
 	}
 	if _, e = Decode(b); e != nil {
 		t.Fatal(e)
+	}
+	c.Platform.BaseURL = "http://10.0.40.37:32080/tempo-talents/#/login"
+	b, e = json.Marshal(c)
+	if e != nil {
+		t.Fatal(e)
+	}
+	decoded, e := Decode(b)
+	if e != nil || decoded.Platform.BaseURL != "http://10.0.40.37:32080/tempo-talents/" {
+		t.Fatalf("pasted Tempo URL was not normalized: %q, err=%v", decoded.Platform.BaseURL, e)
 	}
 	raw := []byte(`{"platform":{"base_url":"https://example.invalid/","username":"fixture","password":"fixture"},"run":{"skip_passed":false,"cleanup_chat":false,"max_retry":0,"delay_between_steps":0}}`)
 	v, e := Decode(raw)
@@ -71,6 +81,73 @@ func TestLoad(t *testing.T) {
 		t.Fatal(d, e)
 	}
 }
+
+func TestCreateNew(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "nested", "config.json")
+	c := good()
+	c.Platform.BaseURL = "http://10.0.40.37:32080/tempo-talents/#/login"
+	if err := CreateNew(path, c); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := os.ReadFile(path)
+	if err != nil || bytes.Contains(saved, []byte("#/login")) || !bytes.Contains(saved, []byte("http://10.0.40.37:32080/tempo-talents/")) {
+		t.Fatalf("saved config contains an unnormalized platform URL: %s, err=%v", saved, err)
+	}
+	loaded, err := Load(path)
+	if err != nil || loaded.Platform.Username != c.Platform.Username {
+		t.Fatalf("loaded=%+v, err=%v", loaded, err)
+	}
+	if runtime.GOOS != "windows" {
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Mode().Perm() != 0600 {
+			t.Fatalf("config mode=%v, want 0600", info.Mode().Perm())
+		}
+	}
+	if err := CreateNew(path, good()); !errors.Is(err, os.ErrExist) {
+		t.Fatalf("existing file was overwritten: %v", err)
+	}
+	bad := good()
+	bad.Platform.BaseURL = "YOUR_PLATFORM_HOST"
+	if err := CreateNew(filepath.Join(t.TempDir(), "bad.json"), bad); err == nil {
+		t.Fatal("invalid config was created")
+	}
+}
+
+func TestNormalizePlatformURL(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{name: "trim whitespace", in: " https://tempo.example/tempo-talents/ ", want: "https://tempo.example/tempo-talents/"},
+		{name: "strip SPA route", in: "https://tempo.example/tempo-talents/#/login?from=copy", want: "https://tempo.example/tempo-talents/"},
+		{name: "truncate query", in: "https://tempo.example/tempo-talents/?tenant=course", want: "https://tempo.example/tempo-talents/"},
+		{name: "truncate login path", in: "http://10.0.40.37:32080/tempo-talents/login#/login", want: "http://10.0.40.37:32080/tempo-talents/"},
+		{name: "exact app path", in: "https://tempo.example/tempo-talents", want: "https://tempo.example/tempo-talents/"},
+		{name: "bracketed terminal paste", in: "\x1b[200~http://10.0.40.37:32080/tempo-talents/#/login\x1b[201~", want: "http://10.0.40.37:32080/tempo-talents/"},
+		{name: "wrapped copied URL", in: "[http://10.0.40.37:32080/tempo-talents/#/login]", want: "http://10.0.40.37:32080/tempo-talents/"},
+		{name: "invisible unicode marks", in: "\u200b\ufeffhttps://tempo.example/tempo-talents/#/login\u200b", want: "https://tempo.example/tempo-talents/"},
+		{name: "lookalike path", in: "https://tempo.example/tempo-talents-extra/#/login", want: "https://tempo.example/tempo-talents-extra/"},
+		{name: "IPv6 host", in: "http://[::1]:8080/tempo-talents/#/login", want: "http://[::1]:8080/tempo-talents/"},
+		{name: "invalid escape retained", in: "https://tempo.example/%zz/tempo-talents/#/login", want: "https://tempo.example/%zz/tempo-talents/#/login"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := NormalizePlatformURL(tt.in); got != tt.want {
+				t.Fatalf("NormalizePlatformURL(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+	c := good()
+	c.Platform.BaseURL = "http://10.0.40.37:32080/tempo-talents/#/login"
+	if err := c.Validate(); err != nil {
+		t.Fatalf("full copied Tempo URL was rejected: %v", err)
+	}
+}
+
 func TestInvalidLocalEnvironment(t *testing.T) {
 	if !hasNull([]any{1, nil}) || hasNull([]any{1, "x"}) {
 		t.Fatal("nested null")
@@ -111,5 +188,48 @@ func TestAPIProviderConfig(t *testing.T) {
 	c.AI.Provider = "unknown"
 	if err := c.Validate(); err == nil {
 		t.Fatal("unknown provider accepted")
+	}
+}
+
+func TestAPIProviderValidation(t *testing.T) {
+	tests := []struct {
+		name   string
+		change func(*Config)
+	}{
+		{name: "missing API URL", change: func(c *Config) { c.AI.BaseURL = "" }},
+		{name: "API URL with credentials", change: func(c *Config) { c.AI.BaseURL = "https://user:pass@api.example.invalid" }},
+		{name: "API URL with query", change: func(c *Config) { c.AI.BaseURL = "https://api.example.invalid?token=hidden" }},
+		{name: "remote HTTP API", change: func(c *Config) { c.AI.BaseURL = "http://api.example.invalid" }},
+		{name: "missing model", change: func(c *Config) { c.AI.Model = " " }},
+		{name: "model placeholder", change: func(c *Config) { c.AI.Model = "YOUR_MODEL" }},
+		{name: "empty API key environment name", change: func(c *Config) { c.AI.APIKeyEnv = " " }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := good()
+			c.AI.Provider = "openai_compatible"
+			c.AI.BaseURL = "https://api.example.invalid/v1"
+			c.AI.Model = "fixture-model"
+			c.AI.APIKey = ""
+			c.AI.APIKeyEnv = "TEMPO_AI_API_KEY"
+			t.Setenv("TEMPO_AI_API_KEY", "")
+			tt.change(&c)
+			if err := c.Validate(); err == nil {
+				t.Fatal("invalid API configuration was accepted")
+			}
+		})
+	}
+
+	for _, endpoint := range []string{"http://localhost/v1", "http://127.0.0.1/v1", "http://[::1]/v1"} {
+		t.Run(endpoint, func(t *testing.T) {
+			c := good()
+			c.AI.Provider = "openai_compatible"
+			c.AI.BaseURL = endpoint
+			c.AI.Model = "fixture-model"
+			c.AI.APIKey = "fixture-key"
+			if err := c.Validate(); err != nil {
+				t.Fatalf("local HTTP API rejected: %v", err)
+			}
+		})
 	}
 }

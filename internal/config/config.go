@@ -165,6 +165,34 @@ func Load(path string) (Config, error) {
 	return Decode(b)
 }
 
+// CreateNew 验证并以仅用户可读权限创建配置，不覆盖已有文件。
+func CreateNew(path string, c Config) error {
+	if err := c.Validate(); err != nil {
+		return err
+	}
+	b, err := json.MarshalIndent(c, "", "  ")
+	if err != nil {
+		return fmt.Errorf("编码配置失败: %w", err)
+	}
+	b = append(b, '\n')
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		return err
+	}
+	n, writeErr := f.Write(b)
+	if writeErr == nil && n != len(b) {
+		writeErr = io.ErrShortWrite
+	}
+	closeErr := f.Close()
+	if writeErr != nil || closeErr != nil {
+		return errors.Join(writeErr, closeErr, os.Remove(path))
+	}
+	return nil
+}
+
 // DataDir 使用系统用户配置目录，迁移和升级不覆盖 profile 或日志。
 func DataDir() (string, error) {
 	d, e := os.UserConfigDir()

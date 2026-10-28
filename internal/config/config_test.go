@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -71,6 +72,36 @@ func TestLoad(t *testing.T) {
 		t.Fatal(d, e)
 	}
 }
+
+func TestCreateNew(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "nested", "config.json")
+	c := good()
+	if err := CreateNew(path, c); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := Load(path)
+	if err != nil || loaded.Platform.Username != c.Platform.Username {
+		t.Fatalf("loaded=%+v, err=%v", loaded, err)
+	}
+	if runtime.GOOS != "windows" {
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Mode().Perm() != 0600 {
+			t.Fatalf("config mode=%v, want 0600", info.Mode().Perm())
+		}
+	}
+	if err := CreateNew(path, good()); !errors.Is(err, os.ErrExist) {
+		t.Fatalf("existing file was overwritten: %v", err)
+	}
+	bad := good()
+	bad.Platform.BaseURL = "YOUR_PLATFORM_HOST"
+	if err := CreateNew(filepath.Join(t.TempDir(), "bad.json"), bad); err == nil {
+		t.Fatal("invalid config was created")
+	}
+}
+
 func TestInvalidLocalEnvironment(t *testing.T) {
 	if !hasNull([]any{1, nil}) || hasNull([]any{1, "x"}) {
 		t.Fatal("nested null")

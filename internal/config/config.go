@@ -96,11 +96,26 @@ func Decode(b []byte) (Config, error) {
 	return c, c.Validate()
 }
 
-// NormalizePlatformURL 清除复制来的 Tempo 地址中的浏览器端路由。
+// NormalizePlatformURL 清理终端粘贴标记，并将复制来的 Tempo 地址截到应用入口。
 func NormalizePlatformURL(raw string) string {
-	raw = strings.TrimSpace(raw)
+	raw = strings.ReplaceAll(raw, "\x1b[200~", "")
+	raw = strings.ReplaceAll(raw, "\x1b[201~", "")
+	raw = strings.TrimSpace(strings.Trim(raw, "\ufeff"))
 	u, err := url.Parse(raw)
-	if err != nil || u.Fragment == "" && u.RawFragment == "" {
+	if err != nil {
+		return raw
+	}
+	if i := strings.Index(u.Path, "/tempo-talents"); i >= 0 {
+		end := i + len("/tempo-talents")
+		if end == len(u.Path) || u.Path[end] == '/' {
+			u.Path = u.Path[:end] + "/"
+			u.RawPath = ""
+			u.Fragment = ""
+			u.RawFragment = ""
+			return u.String()
+		}
+	}
+	if u.Fragment == "" && u.RawFragment == "" {
 		return raw
 	}
 	u.Fragment = ""

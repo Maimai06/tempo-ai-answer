@@ -144,3 +144,46 @@ func TestAPIProviderConfig(t *testing.T) {
 		t.Fatal("unknown provider accepted")
 	}
 }
+
+func TestAPIProviderValidation(t *testing.T) {
+	tests := []struct {
+		name   string
+		change func(*Config)
+	}{
+		{name: "missing API URL", change: func(c *Config) { c.AI.BaseURL = "" }},
+		{name: "API URL with credentials", change: func(c *Config) { c.AI.BaseURL = "https://user:pass@api.example.invalid" }},
+		{name: "API URL with query", change: func(c *Config) { c.AI.BaseURL = "https://api.example.invalid?token=hidden" }},
+		{name: "remote HTTP API", change: func(c *Config) { c.AI.BaseURL = "http://api.example.invalid" }},
+		{name: "missing model", change: func(c *Config) { c.AI.Model = " " }},
+		{name: "model placeholder", change: func(c *Config) { c.AI.Model = "YOUR_MODEL" }},
+		{name: "empty API key environment name", change: func(c *Config) { c.AI.APIKeyEnv = " " }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := good()
+			c.AI.Provider = "openai_compatible"
+			c.AI.BaseURL = "https://api.example.invalid/v1"
+			c.AI.Model = "fixture-model"
+			c.AI.APIKey = ""
+			c.AI.APIKeyEnv = "TEMPO_AI_API_KEY"
+			t.Setenv("TEMPO_AI_API_KEY", "")
+			tt.change(&c)
+			if err := c.Validate(); err == nil {
+				t.Fatal("invalid API configuration was accepted")
+			}
+		})
+	}
+
+	for _, endpoint := range []string{"http://localhost/v1", "http://127.0.0.1/v1", "http://[::1]/v1"} {
+		t.Run(endpoint, func(t *testing.T) {
+			c := good()
+			c.AI.Provider = "openai_compatible"
+			c.AI.BaseURL = endpoint
+			c.AI.Model = "fixture-model"
+			c.AI.APIKey = "fixture-key"
+			if err := c.Validate(); err != nil {
+				t.Fatalf("local HTTP API rejected: %v", err)
+			}
+		})
+	}
+}

@@ -65,9 +65,10 @@ func promptFirstRunConfig(reader *bufio.Reader, output io.Writer, readSecret fun
 	fmt.Fprintln(output, "平台密码和 API 密钥输入时不会显示；配置信息只保存在本机配置文件中。")
 
 	var err error
-	if cfg.Platform.BaseURL, err = promptValue(reader, output, "Tempo 平台地址（含 /tempo-talents/ 路径）: ", ""); err != nil {
+	if cfg.Platform.BaseURL, err = promptValue(reader, output, "Tempo 平台地址（可粘贴含 #/login 的完整链接）: ", ""); err != nil {
 		return config.Config{}, err
 	}
+	cfg.Platform.BaseURL = config.NormalizePlatformURL(cfg.Platform.BaseURL)
 	if cfg.Platform.Username, err = promptValue(reader, output, "平台账号: ", ""); err != nil {
 		return config.Config{}, err
 	}

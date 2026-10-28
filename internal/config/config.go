@@ -92,11 +92,25 @@ func Decode(b []byte) (Config, error) {
 	if err := d.Decode(&c); err != nil {
 		return c, fmt.Errorf("配置字段类型错误: %w", err)
 	}
+	c.Platform.BaseURL = NormalizePlatformURL(c.Platform.BaseURL)
 	return c, c.Validate()
+}
+
+// NormalizePlatformURL 清除复制来的 Tempo 地址中的浏览器端路由。
+func NormalizePlatformURL(raw string) string {
+	raw = strings.TrimSpace(raw)
+	u, err := url.Parse(raw)
+	if err != nil || u.Fragment == "" && u.RawFragment == "" {
+		return raw
+	}
+	u.Fragment = ""
+	u.RawFragment = ""
+	return u.String()
 }
 
 // Validate 启动前校验，不在错误中回显凭据。
 func (c Config) Validate() error {
+	c.Platform.BaseURL = NormalizePlatformURL(c.Platform.BaseURL)
 	u, e := url.Parse(c.Platform.BaseURL)
 	if e != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") || strings.Contains(strings.ToUpper(c.Platform.BaseURL), "YOUR_") || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
 		return errors.New("platform.base_url 请填写真实 HTTP(S) 平台地址")
@@ -167,6 +181,7 @@ func Load(path string) (Config, error) {
 
 // CreateNew 验证并以仅用户可读权限创建配置，不覆盖已有文件。
 func CreateNew(path string, c Config) error {
+	c.Platform.BaseURL = NormalizePlatformURL(c.Platform.BaseURL)
 	if err := c.Validate(); err != nil {
 		return err
 	}

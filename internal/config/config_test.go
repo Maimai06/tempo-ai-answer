@@ -26,6 +26,15 @@ func TestDefaultsAndValidation(t *testing.T) {
 	if _, e = Decode(b); e != nil {
 		t.Fatal(e)
 	}
+	c.Platform.BaseURL = "http://10.0.40.37:32080/tempo-talents/#/login"
+	b, e = json.Marshal(c)
+	if e != nil {
+		t.Fatal(e)
+	}
+	decoded, e := Decode(b)
+	if e != nil || decoded.Platform.BaseURL != "http://10.0.40.37:32080/tempo-talents/" {
+		t.Fatalf("pasted Tempo URL was not normalized: %q, err=%v", decoded.Platform.BaseURL, e)
+	}
 	raw := []byte(`{"platform":{"base_url":"https://example.invalid/","username":"fixture","password":"fixture"},"run":{"skip_passed":false,"cleanup_chat":false,"max_retry":0,"delay_between_steps":0}}`)
 	v, e := Decode(raw)
 	if e != nil || v.Run.SkipPassed || v.Run.CleanupChat || v.Run.MaxRetry != 0 || v.Run.Delay != 0 || v.Run.PerChat != 3 {
@@ -76,8 +85,13 @@ func TestLoad(t *testing.T) {
 func TestCreateNew(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "nested", "config.json")
 	c := good()
+	c.Platform.BaseURL = "http://10.0.40.37:32080/tempo-talents/#/login"
 	if err := CreateNew(path, c); err != nil {
 		t.Fatal(err)
+	}
+	saved, err := os.ReadFile(path)
+	if err != nil || bytes.Contains(saved, []byte("#/login")) || !bytes.Contains(saved, []byte("http://10.0.40.37:32080/tempo-talents/")) {
+		t.Fatalf("saved config contains an unnormalized platform URL: %s, err=%v", saved, err)
 	}
 	loaded, err := Load(path)
 	if err != nil || loaded.Platform.Username != c.Platform.Username {
@@ -99,6 +113,23 @@ func TestCreateNew(t *testing.T) {
 	bad.Platform.BaseURL = "YOUR_PLATFORM_HOST"
 	if err := CreateNew(filepath.Join(t.TempDir(), "bad.json"), bad); err == nil {
 		t.Fatal("invalid config was created")
+	}
+}
+
+func TestNormalizePlatformURLPreservesOtherComponents(t *testing.T) {
+	if got := NormalizePlatformURL(" https://tempo.example/tempo-talents/ "); got != "https://tempo.example/tempo-talents/" {
+		t.Fatalf("unexpected normalized URL: %q", got)
+	}
+	if got := NormalizePlatformURL("https://tempo.example/tempo-talents/#/login?from=copy"); got != "https://tempo.example/tempo-talents/" {
+		t.Fatalf("SPA route was not removed: %q", got)
+	}
+	if got := NormalizePlatformURL("https://tempo.example/tempo-talents/?tenant=course"); got != "https://tempo.example/tempo-talents/?tenant=course" {
+		t.Fatalf("query string was changed: %q", got)
+	}
+	c := good()
+	c.Platform.BaseURL = "http://10.0.40.37:32080/tempo-talents/#/login"
+	if err := c.Validate(); err != nil {
+		t.Fatalf("full copied Tempo URL was rejected: %v", err)
 	}
 }
 

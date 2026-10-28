@@ -8,7 +8,7 @@ Go v2 迁移版：通过本机 Edge / Chrome 驱动 Tempo 平台，AI 可选 Dee
 
 解压与系统匹配的 ZIP。Windows 使用 `tempo-ai-answer.exe`，macOS / Linux 使用 `tempo-ai-answer`；macOS 另附 `启动.command`。Go 支持在一台机器上交叉编译不同目标，但生成的二进制仍区分系统和 CPU 架构：Windows x64、macOS Intel、macOS Apple Silicon、Linux x64 各用对应的包。
 
-首次在交互终端启动且目标配置不存在时，程序会引导填写平台地址、账号和密码，并选择 DeepSeek 网页或兼容 API。密码和 API 密钥输入时不回显；API 地址和模型提供默认值，API 密钥可留空并使用 `TEMPO_AI_API_KEY`。配置验证通过后写入本机并继续启动。非交互运行仍生成占位 `config.json` 并退出，供自动化或手动配置。默认始终读取可执行文件所在目录的配置，从其他工作目录启动或双击 `启动.command` 也使用同一份文件；配置错误会显示实际路径。
+首次在交互终端启动且目标配置不存在时，程序会引导填写平台地址、账号和密码，并选择 DeepSeek 网页或兼容 API。平台地址可直接粘贴 Tempo 登录页完整链接，例如 `http://10.0.40.37:32080/tempo-talents/#/login`；程序会自动去掉 `#/login` 前端路由并保存平台入口。密码和 API 密钥输入时不回显；API 地址和模型提供默认值，API 密钥可留空并使用 `TEMPO_AI_API_KEY`。配置验证通过后写入本机并继续启动。非交互运行仍生成占位 `config.json` 并退出，供自动化或手动配置。默认始终读取可执行文件所在目录的配置，从其他工作目录启动或双击 `启动.command` 也使用同一份文件；配置错误会显示实际路径。
 
 ```text
 tempo-ai-answer login

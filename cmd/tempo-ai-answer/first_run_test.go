@@ -10,7 +10,7 @@ import (
 func TestPromptFirstRunConfigDeepSeek(t *testing.T) {
 	t.Setenv("TEMPO_AI_API_KEY", "")
 	var output strings.Builder
-	reader := bufio.NewReader(strings.NewReader("https://tempo.example/tempo-talents/\nstudent-01\n\n"))
+	reader := bufio.NewReader(strings.NewReader("http://10.0.40.37:32080/tempo-talents/#/login\nstudent-01\n\n"))
 	cfg, err := promptFirstRunConfig(reader, &output, func(prompt string) (string, error) {
 		fmt.Fprint(&output, prompt)
 		return "platform-password", nil
@@ -18,7 +18,7 @@ func TestPromptFirstRunConfigDeepSeek(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.AI.Provider != "deepseek_web" || cfg.Platform.Username != "student-01" || cfg.Platform.Password != "platform-password" {
+	if cfg.AI.Provider != "deepseek_web" || cfg.Platform.BaseURL != "http://10.0.40.37:32080/tempo-talents/" || cfg.Platform.Username != "student-01" || cfg.Platform.Password != "platform-password" {
 		t.Fatalf("unexpected config: %+v", cfg)
 	}
 	if strings.Contains(output.String(), "platform-password") {

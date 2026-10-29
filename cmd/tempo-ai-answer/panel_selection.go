@@ -133,14 +133,14 @@ func (c *panelCatalog) listSteps(ctx context.Context, classroomID, courseID stri
 	}
 	previous := c.client.plat.ClassroomID
 	c.client.plat.ClassroomID = classroomID
-	steps, err := c.client.plat.ListSteps(ctx, course.Identifier())
+	steps, err := c.client.plat.Prepare(ctx, course.Identifier())
 	c.client.plat.ClassroomID = previous
 	if err != nil {
-		c.logCatalogError("读取关卡清单失败", err)
+		c.logCatalogError("初始化实践环境并读取关卡清单失败", err)
 		return nil, err
 	}
 	if len(steps) == 0 {
-		return nil, errors.New("平台暂未返回关卡；请在 Tempo 打开该实验并启动实践环境后重试")
+		return nil, errors.New("实践环境就绪后平台仍未返回关卡")
 	}
 	steps = append([]core.StepRef(nil), steps...)
 	sort.SliceStable(steps, func(i, j int) bool { return steps[i].Sequence < steps[j].Sequence })

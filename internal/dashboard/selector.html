@@ -241,7 +241,7 @@
     </div>
     <aside class="pane detail-rail" id="steps-pane">
       <div class="pane-title"><span class="step-no">03</span><div><h2>关卡范围</h2><small id="step-count"></small></div></div>
-      <div class="selected-list" id="selected-courses"><div class="empty">选择实验后，这里会显示对应的关卡清单。</div></div>
+      <div class="selected-list" id="selected-courses"><div class="empty">选择实验后会准备实践环境并读取关卡。</div></div>
       <section class="mode-section" aria-labelledby="mode-title">
         <div class="mode-heading"><h2 id="mode-title">运行方式</h2></div>
         <div class="modebar" role="radiogroup" aria-labelledby="mode-title">
@@ -368,22 +368,24 @@ async function toggleCourse(id, checked) {
   data.courseEpoch.set(id,courseEpoch);
   if (!checked) { data.selectedCourses.delete(id); data.steps.delete(id); data.selectedSteps.delete(id); renderSelected(); renderCourses(); updateSummary(); return; }
   data.selectedCourses.add(id); data.busy++; renderCourses(); renderSelected(); updateSummary();
+  const courseName = courseById(id)?.name || "该实验";
+  showMessage(`正在初始化「${courseName}」的实践环境并读取关卡；课程状态可能变为学习中。`);
   try {
     const items = await api(`/api/select/steps?classroom_id=${encodeURIComponent(data.classroomId)}&course_id=${encodeURIComponent(id)}`);
     if (epoch !== data.classroomEpoch || data.courseEpoch.get(id) !== courseEpoch || !data.selectedCourses.has(id)) return;
     data.steps.set(id,items);
     if (!data.selectedSteps.has(id)) data.selectedSteps.set(id,new Set());
-    showMessage(`${courseById(id)?.name || "实验"}：已读取 ${items.length} 个实际关卡。`, "ok");
+    showMessage(`${courseName}：已读取 ${items.length} 个实际关卡；平台会在环境 HTTP 连接断开后自动关闭环境。`, "ok");
   } catch (error) {
     if (epoch !== data.classroomEpoch || data.courseEpoch.get(id) !== courseEpoch) return;
     data.selectedCourses.delete(id); data.steps.delete(id); data.selectedSteps.delete(id);
-    showMessage(`暂时读不到「${courseById(id)?.name || "该实验"}」的关卡：${error.message}。可先在 Tempo 打开实验并启动实践环境，再回来重试。`,"error");
+    showMessage(`「${courseName}」初始化或读取关卡失败：${error.message}。可取消选择后重试。`,"error");
   } finally { data.busy--; renderCourses(); renderSelected(); updateSummary(); }
 }
 function renderSelected() {
   const target = el("selected-courses"); target.replaceChildren();
   const ids = [...data.selectedCourses];
-  if (!ids.length) { target.append(make("div","empty","选择实验后，这里会显示对应的关卡清单。")); el("step-count").textContent = ""; return; }
+  if (!ids.length) { target.append(make("div","empty","选择实验后会准备实践环境并读取关卡。")); el("step-count").textContent = ""; return; }
   let all = 0, picked = 0;
   for (const id of ids) {
     const course = courseById(id); if (!course) continue;
@@ -393,7 +395,7 @@ function renderSelected() {
     const clear = make("button","","清空本实验范围"); clear.type = "button"; clear.addEventListener("click",() => { selectedFor(id).clear(); renderSelected(); updateSummary(); });
     head.append(title,clear); group.append(head);
     const items = data.steps.get(id);
-    if (!items) { group.append(make("div","empty","正在读取关卡…")); target.append(group); continue; }
+    if (!items) { group.append(make("div","empty","正在准备实践环境并读取关卡…")); target.append(group); continue; }
     all += items.length;
     const tools = make("div","tools");
     const unfinished = make("button","","选择本实验未完成关卡"); unfinished.type = "button"; unfinished.addEventListener("click",() => { for (const step of items) if (!step.finished) selectedFor(id).add(step.id); renderSelected(); updateSummary(); });
@@ -437,8 +439,8 @@ function updateSummary() {
   if (!selection.steps && !data.busy) el("status-line").textContent = mode() === "trial" ? "请选择一个关卡。" : "请至少选择一个未完成关卡。";
   else if (mode() === "trial" && selection.steps !== 1) el("status-line").textContent = "单关试运行需要且只能选择一个关卡。";
   else if (selection.passed) el("status-line").textContent = `${selection.passed} 个已完成关卡会跳过；确认范围后才会启动。`;
-  else if (ready) el("status-line").textContent = "范围就绪；确认前不会启动实践环境、AI 请求或评测。";
-  else el("status-line").textContent = data.busy ? "正在读取关卡清单…" : "选择课堂、实验和关卡后即可确认。";
+  else if (ready) el("status-line").textContent = "关卡范围已就绪；确认后才会启动 AI 请求或评测。";
+  else el("status-line").textContent = data.busy ? "正在准备实践环境并读取关卡…" : "选择课堂、实验和关卡后即可确认。";
   el("step-count").textContent = `${selection.steps} 个已选`;
 }
 function showConfirmation() {

@@ -330,7 +330,7 @@ func (c *Client) ListSteps(ctx context.Context, id string) ([]core.StepRef, erro
 
 // Prepare 必要时初始化实践环境，并在限定时间内等待就绪。
 func (c *Client) Prepare(ctx context.Context, id string) ([]core.StepRef, error) {
-	if s, e := c.ListSteps(ctx, id); e == nil {
+	if s, e := c.ListSteps(ctx, id); e == nil && len(s) > 0 {
 		return s, nil
 	}
 	if e := c.API(ctx, "/tt-course-challenge/environment/initialize", "POST", vals("courseId", id, "classroomId", c.ClassroomID), nil); e != nil {

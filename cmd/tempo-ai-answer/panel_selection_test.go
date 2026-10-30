@@ -22,6 +22,28 @@ func (catalogFailurePage) Eval(_ context.Context, _ string, out any) error {
 
 func (catalogFailurePage) Navigate(context.Context, string) error { return nil }
 
+type panelPreparePage struct {
+	calls  []string
+	cancel context.CancelFunc
+}
+
+func (p *panelPreparePage) Eval(_ context.Context, js string, out any) error {
+	p.calls = append(p.calls, js)
+	var raw string
+	switch {
+	case strings.Contains(js, "/tt-course-challenge/challenge/list"):
+		raw = `{"status":200,"json":{"success":true,"data":{"rows":[]}}}`
+	case strings.Contains(js, "/tt-course-challenge/environment/initialize"):
+		p.cancel()
+		raw = `{"status":200,"json":{"success":true,"data":null}}`
+	default:
+		return context.Canceled
+	}
+	return json.Unmarshal([]byte(raw), out)
+}
+
+func (p *panelPreparePage) Navigate(context.Context, string) error { return nil }
+
 func panelCatalogFixture() (*panelCatalog, *runtimeState) {
 	r := &runtimeState{plat: &platform.Client{ClassroomID: "configured"}}
 	catalog := &panelCatalog{
@@ -93,5 +115,26 @@ func TestPanelCatalogLogsPlatformFailurePrivately(t *testing.T) {
 	}
 	if !strings.Contains(string(data), "HTTP 200") || !strings.Contains(string(data), "平台消息：实践环境尚未启动") {
 		t.Fatalf("private log is missing the platform diagnostic: %s", data)
+	}
+}
+
+func TestPanelCatalogInitializesEnvironmentWhenStepListIsEmpty(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	page := &panelPreparePage{cancel: cancel}
+	catalog := &panelCatalog{
+		client: &runtimeState{plat: &platform.Client{Page: page, BaseURL: "https://example.invalid/tempo-talents/", ClassroomID: "configured"}},
+		courses: map[string]map[string]core.Course{
+			"class-1": {"course-1": {CourseID: "course-1", Name: "循环实验"}},
+		},
+	}
+
+	if _, err := catalog.listSteps(ctx, "class-1", "course-1"); err == nil {
+		t.Fatal("expected cancellation after environment initialization")
+	}
+	if len(page.calls) != 2 || !strings.Contains(page.calls[1], "/tt-course-challenge/environment/initialize") {
+		t.Fatalf("expected list then initialize requests, got %d calls", len(page.calls))
+	}
+	if catalog.client.plat.ClassroomID != "configured" {
+		t.Fatalf("classroom ID was not restored: %q", catalog.client.plat.ClassroomID)
 	}
 }

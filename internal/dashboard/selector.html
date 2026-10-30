@@ -69,7 +69,7 @@
   .course-open { min-width: 0; min-height: 0; display: flex; align-items: center; gap: 9px; flex: 1; padding: 0; border: 0; border-radius: 0; color: inherit; background: transparent; text-align: left; }
   .course-open:hover:not(:disabled) { border-color: transparent; background: transparent; }
   .course-open:hover:not(:disabled) .choice-name { text-decoration: underline; text-decoration-color: #8d9c91; text-underline-offset: 2px; }
-  .course-open-hint { flex: none; color: var(--blue); font-size: 10px; white-space: nowrap; }
+  .course-open[aria-expanded="true"] .choice-name { color: var(--accent-strong); font-weight: 600; }
   .course-error { padding: 8px 0; color: var(--red); overflow-wrap: anywhere; }
   .choice-main { min-width: 0; flex: 1; }
   .choice-name { display: block; color: #283630; overflow-wrap: anywhere; }
@@ -296,7 +296,7 @@
 </dialog>
 <script>
 const key = document.querySelector('meta[name="selection-key"]').content;
-const data = { classrooms: [], classroomId: "", classroomLabel: "", classroomEpoch: 0, requestSerial: 0, courseEpoch: new Map(), courses: [], openCourses: new Set(), loadingCourses: new Set(), pendingSelectAll: new Set(), courseErrors: new Map(), steps: new Map(), selectedSteps: new Map(), busy: 0, courseAnchor: -1, stepAnchors: new Map(), started: false, runSummary: "" };
+const data = { classrooms: [], classroomId: "", classroomLabel: "", classroomEpoch: 0, requestSerial: 0, courseEpoch: new Map(), courses: [], activeCourseId: "", loadingCourses: new Set(), pendingSelectAll: new Set(), courseErrors: new Map(), steps: new Map(), selectedSteps: new Map(), busy: 0, courseAnchor: -1, stepAnchors: new Map(), started: false, runSummary: "" };
 const el = id => document.getElementById(id);
 const mode = () => document.querySelector('input[name="mode"]:checked').value;
 const api = async (path, options = {}) => {
@@ -315,6 +315,7 @@ function showMessage(text, kind = "") { const box = el("message"); box.textConte
 function selectedFor(courseId) { if (!data.selectedSteps.has(courseId)) data.selectedSteps.set(courseId, new Set()); return data.selectedSteps.get(courseId); }
 function courseById(id) { return data.courses.find(item => item.id === id); }
 function stepById(courseId, id) { return (data.steps.get(courseId) || []).find(item => item.id === id); }
+function isCourseVisible(courseId) { return data.activeCourseId === courseId || (data.selectedSteps.get(courseId)?.size || 0) > 0; }
 function updateCourseCheckbox(input, courseId) {
   const course = courseById(courseId);
   const label = [course?.number, course?.name || "未命名实验"].filter(Boolean).join(" ");
@@ -373,7 +374,7 @@ function renderClassrooms() {
   }
 }
 async function selectClassroom(id) {
-  data.classroomId = id; data.classroomEpoch++; data.courseEpoch.clear(); data.courses = []; data.openCourses.clear(); data.loadingCourses.clear(); data.pendingSelectAll.clear(); data.courseErrors.clear(); data.steps.clear(); data.selectedSteps.clear();
+  data.classroomId = id; data.classroomEpoch++; data.courseEpoch.clear(); data.courses = []; data.activeCourseId = ""; data.loadingCourses.clear(); data.pendingSelectAll.clear(); data.courseErrors.clear(); data.steps.clear(); data.selectedSteps.clear();
   const epoch = data.classroomEpoch;
   renderClassrooms(); renderCourses(); renderSelected(); updateSummary(); showMessage("正在读取该课堂的实验清单…");
   try { const courses = await api(`/api/select/courses?classroom_id=${encodeURIComponent(id)}`); if (epoch !== data.classroomEpoch) return; data.courses = courses; renderCourses(); showMessage("实验清单已加载。", "ok"); }
@@ -391,31 +392,30 @@ function renderCourses() {
     const row = make("div","choice-row course-choice-row");
     const input = document.createElement("input"); input.type = "checkbox"; input.dataset.courseId = item.id; updateCourseCheckbox(input,item.id);
     input.addEventListener("change", () => {
-      data.openCourses.add(item.id);
+      data.activeCourseId = item.id;
       if (data.steps.has(item.id)) setCourseSelection(item.id,input.checked);
       else if (input.checked) loadCourseSteps(item.id,{ selectAll:true });
       renderCourses(); renderSelected(); updateSummary();
     });
     const main = make("span","choice-main"); main.append(make("span","choice-name",item.name || "未命名实验"),make("span","choice-meta",`${item.chapter || "未分章"} · ${item.number || ""}`));
-    const open = make("button","course-open"); open.type = "button"; open.setAttribute("aria-expanded",String(data.openCourses.has(item.id)));
+    const open = make("button","course-open"); open.type = "button"; open.setAttribute("aria-expanded",String(isCourseVisible(item.id)));
     open.setAttribute("aria-label",`${data.loadingCourses.has(item.id) ? "正在读取" : "查看"}${item.name || "未命名实验"}的关卡`);
     open.disabled = data.loadingCourses.has(item.id);
     open.addEventListener("click",() => loadCourseSteps(item.id));
-    const hint = make("span","course-open-hint",data.loadingCourses.has(item.id) ? "读取中…" : data.courseErrors.has(item.id) ? "重试读取" : data.steps.has(item.id) ? "已加载" : "查看关卡");
-    open.append(main,hint);
+    open.append(main);
     const checkboxLabel = make("label","course-check"); checkboxLabel.append(input);
     row.append(checkboxLabel,open); target.append(row);
   }
 }
 function setCourseSelection(id, checked) {
-  data.openCourses.add(id);
+  data.activeCourseId = id;
   const items = data.steps.get(id);
   const selected = selectedFor(id);
   selected.clear();
   if (checked) for (const step of items || []) if (mode() === "trial" || !step.finished) selected.add(step.id);
 }
 async function loadCourseSteps(id, { selectAll = false } = {}) {
-  data.openCourses.add(id);
+  data.activeCourseId = id;
   if (data.steps.has(id)) {
     if (selectAll) setCourseSelection(id,true);
     renderCourses(); renderSelected(); updateSummary();
@@ -453,7 +453,7 @@ async function loadCourseSteps(id, { selectAll = false } = {}) {
 }
 function renderSelected() {
   const target = el("selected-courses"); target.replaceChildren();
-  const courses = data.courses.filter(course => data.openCourses.has(course.id));
+  const courses = data.courses.filter(course => isCourseVisible(course.id));
   if (!courses.length) { target.append(make("div","empty","点击实验名称查看关卡；勾选前方复选框可选择该实验的全部可选关卡。")); el("step-count").textContent = ""; return; }
   let all = 0, picked = 0;
   for (const course of courses) {
@@ -572,7 +572,7 @@ el("continue-run").addEventListener("click",async () => {
   try {
     await api("/api/select/continue",{ method:"POST", body:"{}" });
     data.started = false; data.runSummary = ""; data.classroomId = ""; data.classroomLabel = "";
-    data.classroomEpoch++; data.courseEpoch.clear(); data.classrooms = []; data.courses = []; data.openCourses.clear(); data.loadingCourses.clear(); data.pendingSelectAll.clear(); data.courseErrors.clear(); data.steps.clear(); data.selectedSteps.clear(); data.busy = 0;
+    data.classroomEpoch++; data.courseEpoch.clear(); data.classrooms = []; data.courses = []; data.activeCourseId = ""; data.loadingCourses.clear(); data.pendingSelectAll.clear(); data.courseErrors.clear(); data.steps.clear(); data.selectedSteps.clear(); data.busy = 0;
     data.courseAnchor = -1; data.stepAnchors.clear();
     el("course-search").value = "";
     document.querySelectorAll("#scope-view input, #scope-view button").forEach(control => { control.disabled = false; });

@@ -61,7 +61,7 @@
   .selected-list { flex: 1; }
   .choice-row { min-height: 42px; display: flex; align-items: center; gap: 9px; margin-right: 3px; padding: 7px 7px; border: 0; border-bottom: 1px solid var(--line-soft); border-left: 2px solid transparent; cursor: pointer; transition: background .14s,border-color .14s; }
   .choice-row:hover { background: #eef2ee; }
-  .choice-row:has(input:checked) { border-left-color: var(--accent); background: var(--accent-soft); }
+  .choice-row:has(input:checked),.choice-row:has(input:indeterminate) { border-left-color: var(--accent); background: var(--accent-soft); }
   .choice-row input { width: 16px; height: 16px; flex: none; margin: 0; accent-color: var(--accent); }
   .choice-main { min-width: 0; flex: 1; }
   .choice-name { display: block; color: #283630; overflow-wrap: anywhere; }
@@ -307,6 +307,27 @@ function showMessage(text, kind = "") { const box = el("message"); box.textConte
 function selectedFor(courseId) { if (!data.selectedSteps.has(courseId)) data.selectedSteps.set(courseId, new Set()); return data.selectedSteps.get(courseId); }
 function courseById(id) { return data.courses.find(item => item.id === id); }
 function stepById(courseId, id) { return (data.steps.get(courseId) || []).find(item => item.id === id); }
+function updateCourseCheckbox(input, courseId) {
+  const course = courseById(courseId);
+  const label = [course?.number, course?.name || "未命名实验"].filter(Boolean).join(" ");
+  const items = data.steps.get(courseId);
+  if (!items) {
+    input.checked = data.selectedCourses.has(courseId);
+    input.indeterminate = false;
+    input.setAttribute("aria-label", `${label}，${input.checked ? "正在初始化实践环境并读取关卡" : "勾选后初始化实践环境并全选可选关卡"}`);
+    return;
+  }
+  const available = items.filter(step => mode() === "trial" || !step.finished);
+  const selected = available.filter(step => selectedFor(courseId).has(step.id)).length;
+  input.checked = available.length > 0 && selected === available.length;
+  input.indeterminate = selected > 0 && selected < available.length;
+  const state = available.length ? `${selected}/${available.length} 个可选关卡已选` : "当前模式下没有可选择的关卡";
+  input.setAttribute("aria-label", `${label}，${state}`);
+}
+function syncCourseCheckbox(courseId) {
+  const input = [...el("courses").querySelectorAll("input[data-course-id]")].find(item => item.dataset.courseId === courseId);
+  if (input) updateCourseCheckbox(input, courseId);
+}
 function rangeRows(parent, event, kind, courseId = "") {
   const rows = [...parent.querySelectorAll("label.choice-row")];
   const row = event.target.closest("label.choice-row");
@@ -356,13 +377,21 @@ function renderCourses() {
   if (!filtered.length) { target.append(make("div","empty",query ? "没有匹配的实验。" : "该课堂没有可选实验。")); return; }
   for (const item of filtered) {
     const label = make("label","choice-row");
-    const input = document.createElement("input"); input.type = "checkbox"; input.checked = data.selectedCourses.has(item.id); input.dataset.courseId = item.id;
+    const input = document.createElement("input"); input.type = "checkbox"; input.dataset.courseId = item.id; updateCourseCheckbox(input,item.id);
     input.addEventListener("change", () => toggleCourse(item.id,input.checked));
     const main = make("span","choice-main"); main.append(make("span","choice-name",item.name || "未命名实验"),make("span","choice-meta",`${item.chapter || "未分章"} · ${item.number || ""}`));
     label.append(input,main); target.append(label);
   }
 }
 async function toggleCourse(id, checked) {
+  const items = data.steps.get(id);
+  if (items) {
+    const selected = selectedFor(id);
+    selected.clear();
+    if (checked) for (const step of items) if (mode() === "trial" || !step.finished) selected.add(step.id);
+    syncCourseCheckbox(id); renderSelected(); updateSummary();
+    return;
+  }
   const epoch = data.classroomEpoch;
   const courseEpoch = (data.courseEpoch.get(id) || 0) + 1;
   data.courseEpoch.set(id,courseEpoch);
@@ -374,8 +403,9 @@ async function toggleCourse(id, checked) {
     const items = await api(`/api/select/steps?classroom_id=${encodeURIComponent(data.classroomId)}&course_id=${encodeURIComponent(id)}`);
     if (epoch !== data.classroomEpoch || data.courseEpoch.get(id) !== courseEpoch || !data.selectedCourses.has(id)) return;
     data.steps.set(id,items);
-    if (!data.selectedSteps.has(id)) data.selectedSteps.set(id,new Set());
-    showMessage(`${courseName}：已读取 ${items.length} 个实际关卡；平台会在环境 HTTP 连接断开后自动关闭环境。`, "ok");
+    const selected = selectedFor(id); selected.clear();
+    for (const step of items) if (mode() === "trial" || !step.finished) selected.add(step.id);
+    showMessage(`${courseName}：已读取 ${items.length} 个实际关卡，并勾选了当前模式下可选择的关卡；平台会在环境 HTTP 连接断开后自动关闭环境。`, "ok");
   } catch (error) {
     if (epoch !== data.classroomEpoch || data.courseEpoch.get(id) !== courseEpoch) return;
     data.selectedCourses.delete(id); data.steps.delete(id); data.selectedSteps.delete(id);
@@ -392,13 +422,13 @@ function renderSelected() {
     const group = make("section","course-group");
     const head = make("div","course-group-head");
     const title = make("h3", "", course.name || "未命名实验"); title.append(make("small","",`${course.chapter || "未分章"} · ${course.number || ""}`));
-    const clear = make("button","","清空本实验范围"); clear.type = "button"; clear.addEventListener("click",() => { selectedFor(id).clear(); renderSelected(); updateSummary(); });
+    const clear = make("button","","清空本实验范围"); clear.type = "button"; clear.addEventListener("click",() => { selectedFor(id).clear(); syncCourseCheckbox(id); renderSelected(); updateSummary(); });
     head.append(title,clear); group.append(head);
     const items = data.steps.get(id);
     if (!items) { group.append(make("div","empty","正在准备实践环境并读取关卡…")); target.append(group); continue; }
     all += items.length;
     const tools = make("div","tools");
-    const unfinished = make("button","","选择本实验未完成关卡"); unfinished.type = "button"; unfinished.addEventListener("click",() => { for (const step of items) if (!step.finished) selectedFor(id).add(step.id); renderSelected(); updateSummary(); });
+    const unfinished = make("button","","选择本实验未完成关卡"); unfinished.type = "button"; unfinished.addEventListener("click",() => { for (const step of items) if (!step.finished) selectedFor(id).add(step.id); syncCourseCheckbox(id); renderSelected(); updateSummary(); });
     tools.append(unfinished); group.append(tools);
     const list = make("div","step-list"); list.dataset.courseId = id;
     for (const step of items) {
@@ -406,7 +436,7 @@ function renderSelected() {
       const skipped = mode() !== "trial" && step.finished;
       const input = document.createElement("input"); input.type = "checkbox"; input.checked = selectedFor(id).has(step.id) && !skipped; input.dataset.stepId = step.id;
       input.disabled = skipped;
-      input.addEventListener("change",() => { if (input.checked) selectedFor(id).add(step.id); else selectedFor(id).delete(step.id); updateSummary(); });
+      input.addEventListener("change",() => { if (input.checked) selectedFor(id).add(step.id); else selectedFor(id).delete(step.id); syncCourseCheckbox(id); updateSummary(); });
       const main = make("span","choice-main"); main.append(make("span","choice-name",`第 ${step.sequence} 关 · ${step.name || "未命名关卡"}`));
       const status = make("span",`status${step.finished ? " done" : ""}`,step.finished ? (skipped ? "已完成 · 将跳过" : "已完成") : "未完成");
       label.append(input,main,status); list.append(label);
@@ -469,7 +499,7 @@ function payload() {
 el("course-search").addEventListener("input",renderCourses);
 el("courses").addEventListener("click",event => rangeRows(el("courses"),event,"course"));
 el("selected-courses").addEventListener("click",event => { const list = event.target.closest(".step-list"); if (list) rangeRows(list,event,"step",list.dataset.courseId); });
-document.querySelectorAll('input[name="mode"]').forEach(input => input.addEventListener("change",() => { renderSelected(); updateSummary(); }));
+document.querySelectorAll('input[name="mode"]').forEach(input => input.addEventListener("change",() => { renderCourses(); renderSelected(); updateSummary(); }));
 el("start").addEventListener("click",showConfirmation);
 el("back-to-edit").addEventListener("click",() => el("confirm-dialog").close());
 el("confirm-start").addEventListener("click",async () => {
